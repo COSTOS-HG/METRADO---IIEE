@@ -1,0 +1,2074 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Metrado IIEE · Tableros de Distribución</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js"></script>
+<style>
+  :root{
+    --ink:#0f1b2d; --ink2:#3a4a61; --line:#d3dae5; --line2:#e7ecf3;
+    --bg:#eef1f6; --panel:#ffffff; --accent:#1d4ed8; --accent-d:#163a9e;
+    --green:#0f8a4d; --amber:#fff6da; --amberln:#e9d089;
+    --nivel:#0f1b2d; --bloque:#26456f; --tablero:#dbe6f6;
+    --shadow:0 1px 2px rgba(15,27,45,.08),0 8px 24px rgba(15,27,45,.06);
+    --mono:"SFMono-Regular",ui-monospace,"Cascadia Code",Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{
+    font-family:"Segoe UI",system-ui,sans-serif;
+    background:
+      radial-gradient(1200px 500px at 100% -10%,#dde6f5 0,transparent 60%),
+      var(--bg);
+    color:var(--ink); font-size:13px; -webkit-font-smoothing:antialiased;
+  }
+  /* ---------- top bar ---------- */
+  header{
+    position:sticky; top:0; z-index:50;
+    background:linear-gradient(180deg,#11233c,#0c1a2d);
+    color:#eaf0fa; padding:12px 20px;
+    display:flex; align-items:center; gap:16px; flex-wrap:wrap;
+    box-shadow:0 2px 14px rgba(0,0,0,.25);
+  }
+  header .brand{display:flex;align-items:center;gap:11px;margin-right:auto}
+  header .logo{
+    width:34px;height:34px;border-radius:8px;flex:none;
+    background:conic-gradient(from 220deg,#3b82f6,#1d4ed8,#0ea5e9,#3b82f6);
+    display:grid;place-items:center;font-weight:800;color:#fff;font-size:15px;
+    box-shadow:inset 0 0 0 1px rgba(255,255,255,.25);
+  }
+  header h1{font-size:15px;margin:0;font-weight:650;letter-spacing:.2px}
+  header .sub{font-size:11px;color:#9db4d6;margin-top:1px}
+  .btn{
+    border:1px solid rgba(255,255,255,.18); background:rgba(255,255,255,.06);
+    color:#eaf0fa; padding:7px 13px; border-radius:8px; cursor:pointer;
+    font-size:12px; font-weight:600; display:inline-flex; align-items:center; gap:6px;
+    transition:.15s;
+  }
+  .btn:hover{background:rgba(255,255,255,.16)}
+  .btn.primary{background:var(--accent);border-color:var(--accent)}
+  .btn.primary:hover{background:#2563eb}
+  .btn.green{background:var(--green);border-color:var(--green)}
+  .btn.green:hover{filter:brightness(1.08)}
+  .btn.ghost{background:transparent}
+  .btn svg{width:15px;height:15px}
+
+  /* ---------- layout ---------- */
+  .shell{display:flex;min-height:calc(100vh - 59px)}
+  aside{
+    width:290px;flex:none;background:var(--panel);border-right:1px solid var(--line);
+    padding:14px;overflow:auto;height:calc(100vh - 59px);position:sticky;top:59px;
+  }
+  main{flex:1;padding:20px 22px 80px;overflow:auto}
+  .side-h{font-size:11px;text-transform:uppercase;letter-spacing:.7px;color:var(--ink2);
+    font-weight:700;margin:6px 4px 8px;display:flex;justify-content:space-between;align-items:center}
+
+  /* project meta */
+  .meta-card{background:#f7f9fc;border:1px solid var(--line2);border-radius:10px;padding:12px;margin-bottom:16px}
+  .meta-card label{display:block;font-size:10.5px;font-weight:700;color:var(--ink2);text-transform:uppercase;letter-spacing:.5px;margin:8px 0 3px}
+  .meta-card label:first-child{margin-top:0}
+  .meta-card input,.meta-card textarea{
+    width:100%;border:1px solid var(--line);border-radius:6px;padding:6px 8px;font:inherit;font-size:12px;background:#fff;resize:vertical}
+  .meta-card textarea{min-height:48px;line-height:1.35}
+
+  /* tree */
+  .tree-item{display:flex;align-items:center;gap:6px;padding:7px 9px;border-radius:8px;cursor:pointer;margin-bottom:3px;font-size:12.5px}
+  .tree-item:hover{background:#eef3fb}
+  .tree-item.active{background:#e2ecfe;color:var(--accent-d);font-weight:650;box-shadow:inset 0 0 0 1px #c4d8fb}
+  .tree-item .dot{width:8px;height:8px;border-radius:50%;background:var(--accent);flex:none}
+  .tree-item .nm{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .tree-item .ct{font-size:10.5px;color:var(--ink2);background:#eef2f8;border-radius:20px;padding:1px 7px}
+  .tree-item .del{opacity:0;color:#b42318;font-weight:700;padding:0 4px;border-radius:4px}
+  .tree-item:hover .del{opacity:.7}
+  .tree-item .del:hover{opacity:1;background:#fde6e2}
+
+  .empty{color:var(--ink2);text-align:center;padding:40px 16px;font-size:12.5px;line-height:1.5}
+
+  /* ---------- main panels ---------- */
+  .crumb{font-size:11.5px;color:var(--ink2);margin-bottom:10px}
+  .crumb b{color:var(--ink)}
+  .tablero-head{
+    background:var(--panel);border:1px solid var(--line);border-radius:12px;
+    padding:16px 18px;margin-bottom:16px;box-shadow:var(--shadow);
+    display:flex;gap:18px;align-items:flex-end;flex-wrap:wrap}
+  .fld{display:flex;flex-direction:column;gap:4px}
+  .fld label{font-size:10.5px;font-weight:700;color:var(--ink2);text-transform:uppercase;letter-spacing:.5px}
+  .fld input,.fld select{border:1px solid var(--line);border-radius:7px;padding:8px 10px;font:inherit;font-size:13px;background:#fff;min-width:120px}
+  .fld input:focus,.fld select:focus,.meta-card input:focus,.meta-card textarea:focus{outline:2px solid #bcd0fb;border-color:var(--accent)}
+  .tablero-head h2{margin:0;font-size:18px;font-weight:700}
+  .th-tot{margin-left:auto;text-align:right}
+  .th-tot .lbl{font-size:10px;text-transform:uppercase;letter-spacing:.6px;color:var(--ink2);font-weight:700}
+  .th-tot .val{font-size:22px;font-weight:800;color:var(--accent-d);font-variant-numeric:tabular-nums}
+
+  /* circuit card */
+  .circ{background:var(--panel);border:1px solid var(--line);border-radius:12px;margin-bottom:14px;box-shadow:var(--shadow);overflow:hidden}
+  .circ-head{display:flex;gap:14px;align-items:center;padding:12px 14px;background:linear-gradient(180deg,#f4f8ff,#eaf1fc);border-bottom:1px solid var(--line)}
+  .circ-tag{background:var(--accent);color:#fff;font-weight:800;border-radius:7px;padding:5px 11px;font-size:13px;letter-spacing:.4px;border:none;width:62px;text-align:center}
+  .circ-head input.desc{flex:1;min-width:160px;border:1px solid var(--line);border-radius:7px;padding:7px 10px;font:inherit;font-size:12.5px;background:#fff}
+  .circ-tipo{border:1px solid #bcd0fb;background:#eef4ff;color:var(--accent-d);border-radius:7px;padding:7px 9px;font:inherit;font-size:12px;font-weight:700;flex:none}
+  .circ-tipo:focus{outline:2px solid #bcd0fb;border-color:var(--accent)}
+  .circ-rec{border:1px solid var(--line);background:#fff;color:var(--ink2);border-radius:7px;padding:7px 9px;font:inherit;font-size:12px;font-weight:700;flex:none}
+  .circ-rec:focus{outline:2px solid #bcd0fb;border-color:var(--accent)}
+  .circ-head select{border:1px solid var(--line);border-radius:7px;padding:7px 9px;font:inherit;font-size:12px;background:#fff}
+  .spec{display:flex;align-items:center;gap:5px;background:#fff;border:1px solid var(--line);border-radius:9px;padding:4px 8px}
+  /* colores clásicos: FASE rojo · NEUTRO azul · TIERRA verde */
+  .spec.role-fase{background:#fdeaea;border-color:#f0b6b6}
+  .spec.role-fase .rolelbl{color:#c0392b}
+  .spec.role-neutro{background:#e9eefc;border-color:#b6c5f0}
+  .spec.role-neutro .rolelbl{color:#1d4ed8}
+  .spec.role-tierra{background:#e9f6ec;border-color:#aedcb6}
+  .spec.role-tierra .rolelbl{color:#15803d}
+  .spec.role-tub{background:#eceef1;border-color:#c7ccd3}
+  .spec.role-tub .spec-lbl{color:#5b6471}
+  .spec-lbl{font-size:9.5px;font-weight:800;color:var(--ink2);text-transform:uppercase;letter-spacing:.5px}
+  .spec select{border:1px solid var(--line2);border-radius:6px;padding:5px 6px;font:inherit;font-size:12px;background:#f8fafc}
+  .spec .sel-mat{font-weight:600;color:var(--accent-d);min-width:96px}
+  .spec .sel-dia{min-width:70px;text-align:center}
+  .spec-cond{gap:6px}
+  .cond-in{width:54px;border:1px solid var(--line2);border-radius:6px;padding:5px 6px;font:inherit;font-size:13px;text-align:center;background:#fff;font-weight:700;color:var(--accent-d)}
+  /* catálogo panel superior */
+  .cat-panel{background:linear-gradient(180deg,#f3f7ff,#eaf1fc);border:1px solid #c4d8fb;border-radius:12px;padding:12px 14px;margin-bottom:14px}
+  .cat-title{display:flex;justify-content:space-between;align-items:center;font-size:12px;font-weight:700;color:var(--accent-d);margin-bottom:9px;gap:12px}
+  .cat-add{font-size:11px;font-weight:700;color:var(--ink2);text-transform:none;letter-spacing:0;margin-left:auto;display:flex;align-items:center;gap:5px}
+  .cat-add input{width:60px;border:1px solid #bcd0fb;border-radius:6px;padding:4px 6px;font:inherit;font-size:12.5px;text-align:right;font-weight:700;color:var(--accent-d)}
+  .cat-add input:focus{outline:2px solid #bcd0fb}
+  .btn-mini-link{background:#fff;border:1px solid #bcd0fb;color:var(--accent-d);border-radius:7px;padding:5px 11px;font:inherit;font-size:11.5px;font-weight:700;cursor:pointer}
+  .btn-mini-link:hover{background:var(--accent);color:#fff;border-color:var(--accent)}
+  .cat-chips{display:flex;flex-wrap:wrap;gap:8px}
+  .cat-tipo{display:flex;align-items:center;gap:5px;background:#fff;border:1px solid var(--line);border-radius:9px;padding:5px 9px}
+  .cat-nm{font-size:11px;font-weight:800;color:var(--ink);text-transform:uppercase;letter-spacing:.3px}
+  .cat-h{font-size:11px;font-weight:700;color:var(--accent-d);background:#e2ecfe;border-radius:20px;padding:1px 8px;font-variant-numeric:tabular-nums}
+  .cat-h.cat-0{color:#aaa;background:#f0f0f0}
+  .cat-foot{font-size:11px;color:var(--ink2);margin-top:9px}
+  /* montante quantity rows */
+  table.tr input.qty{width:60px;text-align:center;font-variant-numeric:tabular-nums;font-weight:700;color:var(--accent-d);border:1px solid var(--line)}
+  table.tr input.qty:hover{background:#f5f8fd}
+  table.tr td.alt-cell{color:var(--ink2);font-variant-numeric:tabular-nums}
+  table.tr td.long-cell{font-variant-numeric:tabular-nums;color:var(--ink)}
+  table.tr input.alt-edit{width:66px;text-align:right;border:1px solid var(--line);border-radius:6px;padding:5px 6px;font:inherit;font-size:12.5px;font-variant-numeric:tabular-nums;background:#fff}
+  table.tr input.alt-edit:hover{background:#f5f8fd}
+  table.tr input.alt-edit:focus{outline:none;border-color:var(--accent);background:#fff}
+  table.tr tr.mont-zero td{color:#9aa6b6}
+  table.tr tr.mont-zero input.qty{color:#9aa6b6;font-weight:500}
+  table.tr input.alt-in{max-width:74px}
+  table.tr .qty-ro{display:inline-block;min-width:30px;text-align:center;font-weight:700;color:var(--ink);font-variant-numeric:tabular-nums}
+  /* barra de montantes (cajas por tipo) debajo de C-1 */
+  .qty-bar{padding:11px 14px;background:#f7fafe;border-bottom:1px solid var(--line2)}
+  .qb-title{font-size:11px;font-weight:800;color:var(--ink2);text-transform:uppercase;letter-spacing:.4px;margin-bottom:9px}
+  .qb-boxes{display:flex;flex-wrap:wrap;gap:10px;align-items:flex-start}
+  .qb-box{background:#fff;border:1px solid var(--line);border-radius:10px;padding:8px 9px;min-width:240px;flex:0 0 auto}
+  /* barra de tuberías y cables */
+  .pw-bar{display:flex;flex-wrap:wrap;gap:14px;padding:10px 14px;background:#fbfcfe;border-bottom:1px solid var(--line2)}
+  .pw-group{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+  .pw-add{border:1px dashed var(--line);background:#fff;color:var(--accent-d);border-radius:8px;padding:6px 10px;font:inherit;font-size:11.5px;font-weight:700;cursor:pointer}
+  .pw-add:hover{border-color:var(--accent);background:#eef4ff}
+  .pw-del{color:#b42318;background:#fdecea;border:1px solid #f6c9c2;border-radius:6px;width:24px;height:26px;cursor:pointer;font-weight:700;flex:none;font-size:12px}
+  .pw-del:hover{background:#f9d8d3}
+  .th-sub{font-size:9px;font-weight:600;color:var(--ink2);opacity:.8}
+  table.tr input.cond-mini{width:42px;text-align:center;font-variant-numeric:tabular-nums}
+  table.tr input.cond-cell{width:48px;text-align:center;font-variant-numeric:tabular-nums;border:1px solid var(--line);font-weight:700}
+  .qb-box-h{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:7px}
+  .qb-nm{font-size:10.5px;font-weight:800;color:var(--ink);text-transform:uppercase;letter-spacing:.3px}
+  .qb-add{width:24px;height:24px;border:1px solid #bcd0fb;background:#eef4ff;color:var(--accent-d);border-radius:7px;cursor:pointer;font-size:15px;font-weight:700;line-height:1;flex:none}
+  .qb-add:hover{background:var(--accent);color:#fff;border-color:var(--accent)}
+  .qb-line{display:flex;align-items:center;gap:5px;margin-bottom:5px}
+  .qb-line:last-child{margin-bottom:0}
+  .qb-alt{flex:1;min-width:96px;border:1px solid var(--line);border-radius:6px;padding:5px 6px;font:inherit;font-size:12px;background:#f8fafc}
+  .qb-clase{border:1px solid var(--line);border-radius:6px;padding:5px 5px;font:inherit;font-size:11px;font-weight:700;background:#eef4ff;color:var(--accent-d);min-width:62px}
+  .qb-sel{flex:1;min-width:120px;border:1px solid var(--line);border-radius:6px;padding:5px 6px;font:inherit;font-size:12px;background:#f8fafc;font-weight:600;color:var(--accent-d)}
+  .qb-h-in{width:54px;text-align:right;border:1px solid var(--line);border-radius:6px;padding:5px 5px;font:inherit;font-size:12.5px;font-variant-numeric:tabular-nums}
+  .qb-m{font-size:10px;color:var(--ink2);font-weight:700}
+  .alt-clase{font-size:10px;font-weight:800;color:var(--accent-d);background:#e2ecfe;border:1px solid #c4d8fb;border-radius:6px;padding:3px 7px;min-width:46px;text-align:center}
+  .qb-cant{width:46px;text-align:center;border:1px solid var(--line);border-radius:6px;padding:5px 4px;font:inherit;font-size:13px;font-weight:700;color:var(--accent-d);font-variant-numeric:tabular-nums}
+  .qb-veces{display:inline-flex;align-items:center;gap:2px;font-size:11px;color:var(--ink2);font-weight:700}
+  .qb-vc{width:34px;text-align:center;border:1px solid var(--line);border-radius:6px;padding:5px 3px;font:inherit;font-size:12.5px;font-weight:700;color:var(--ink);font-variant-numeric:tabular-nums}
+  .qb-vc:focus{outline:2px solid #bcd0fb;border-color:var(--accent)}
+  .qb-dbl{border:1px solid #bcd0fb;background:#eef4ff;color:var(--accent-d);border-radius:6px;padding:5px 7px;font:inherit;font-size:10.5px;font-weight:800;cursor:pointer;letter-spacing:.3px;min-width:54px}
+  .qb-dbl.on{background:var(--accent);color:#fff;border-color:var(--accent)}
+  .qb-dbl:not(.on){background:#fff;color:var(--ink2);border-color:var(--line)}
+  .dbl-tag{font-size:9.5px;font-weight:800;color:var(--accent-d);background:#e2ecfe;border:1px solid #c4d8fb;border-radius:5px;padding:1px 5px;letter-spacing:.3px;vertical-align:middle}
+  .dbl-tag.simple{color:var(--ink2);background:#f0f2f6;border-color:var(--line)}
+  .vflecha{font-size:13px;font-weight:900;letter-spacing:1px;line-height:1}
+  .pipe-on{font-weight:700}
+  .pipe-pick{border:1px dashed var(--line);background:#fff;color:var(--accent-d);border-radius:6px;padding:1px 8px;font:inherit;font-size:10.5px;cursor:pointer}
+  .pipe-pick:hover{background:#eef4ff;border-color:#bcd0fb}
+  .dbl-tag{font-size:11px;letter-spacing:1px}
+  .qb-cant:focus,.qb-alt:focus{outline:2px solid #bcd0fb;border-color:var(--accent)}
+  .qb-x{color:#b42318;cursor:pointer;font-weight:700;font-size:12px;padding:2px 4px;border-radius:5px;opacity:.55;flex:none}
+  .qb-x:hover{opacity:1;background:#fdecea}
+  .qb-empty{font-size:11px;color:#9aa6b6;font-style:italic;padding:2px 0}
+  .qb-fixed-line{font-size:11.5px;color:var(--accent-d);font-weight:700;background:#e2ecfe;border:1px solid #c4d8fb;border-radius:7px;padding:5px 8px;display:inline-block}
+  .qb-tab-h{width:62px;text-align:right;border:1px solid var(--line);border-radius:6px;padding:5px 6px;font:inherit;font-size:13px;font-weight:700;color:var(--accent-d);font-variant-numeric:tabular-nums}
+  .qb-tab-h:focus{outline:2px solid #bcd0fb;border-color:var(--accent)}
+  .qb-tab-u{font-size:11px;color:var(--accent-d);font-weight:700}
+  .qty-fixed{display:inline-block;min-width:30px;text-align:center;font-weight:800;color:var(--accent-d);background:#e2ecfe;border:1px solid #c4d8fb;border-radius:6px;padding:4px 8px}
+  .pill{font-size:10px;font-weight:700;color:var(--ink2);text-transform:uppercase;letter-spacing:.5px}
+  .circ-sum{font-variant-numeric:tabular-nums;font-weight:700;color:var(--green);white-space:nowrap}
+  .circ-del{color:#b42318;background:#fdecea;border:1px solid #f6c9c2;border-radius:7px;width:30px;height:30px;cursor:pointer;font-size:15px;font-weight:700;flex:none}
+  .circ-del:hover{background:#f9d8d3}
+
+  /* tramos table */
+  table.tr{width:100%;border-collapse:collapse;font-size:12.5px}
+  table.tr th{background:#f0f3f8;text-align:left;padding:7px 10px;font-size:10.5px;text-transform:uppercase;letter-spacing:.5px;color:var(--ink2);border-bottom:1px solid var(--line)}
+  table.tr td{padding:5px 8px;border-bottom:1px solid var(--line2)}
+  table.tr tr:last-child td{border-bottom:none}
+  table.tr td.n,table.tr th.n{text-align:right}
+  table.tr input{width:100%;border:1px solid transparent;border-radius:6px;padding:6px 8px;font:inherit;font-size:12.5px;background:transparent}
+  table.tr input:hover{background:#f5f8fd}
+  table.tr input:focus{outline:none;border-color:var(--accent);background:#fff}
+  table.tr input.len{text-align:right;font-variant-numeric:tabular-nums;max-width:90px}
+  table.tr input.cnt{text-align:center;width:54px;font-variant-numeric:tabular-nums}
+  .cable-cell{text-align:right;font-variant-numeric:tabular-nums;font-weight:600;color:var(--green);padding-right:10px}
+  .grp-row td{background:#eef2f8;font-weight:700;font-size:11px;text-transform:uppercase;letter-spacing:.6px;color:var(--ink2);padding:5px 10px}
+  .row-del{color:#b42318;cursor:pointer;font-weight:700;text-align:center;opacity:.45;user-select:none}
+  .row-del:hover{opacity:1}
+  .circ-foot{display:flex;gap:8px;padding:10px 14px;background:#fafbfd;border-top:1px solid var(--line2);flex-wrap:wrap}
+  .mini{font-size:11.5px;padding:6px 11px;border-radius:7px;border:1px dashed var(--line);background:#fff;cursor:pointer;font-weight:600;color:var(--ink2)}
+  tr.addrow td{padding:4px 10px 8px;background:#fff}
+  .addrow-h{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .gen-group{display:inline-flex;align-items:center;gap:6px}
+  .gen-lbl{font-size:11.5px;font-weight:600;color:var(--ink2)}
+  .gen-input{width:50px;border:1px solid var(--line);border-radius:6px;padding:5px;text-align:center;font:inherit}
+  .paste-tip{font-size:10.5px;color:var(--ink3,#9aa3b2);font-style:italic;cursor:help}
+  .desc-pick{display:flex;align-items:center;gap:6px}
+  .desc-pick input[data-f="desc"]{flex:1 1 auto;width:auto;min-width:0}
+  .desc-pick .htr-chk{flex:0 0 auto;width:15px;height:15px}
+  .desc-pick .mont-chk,.desc-pick .cnx-chk{flex:0 0 auto;width:15px;height:15px;cursor:pointer;accent-color:var(--accent,#3b6fe0)}
+  .desc-pick .chk-spacer{flex:0 0 auto;width:15px;display:inline-block}
+  .desc-pick .mont-label{flex:1 1 auto;min-width:0}
+  .htr-chk{width:15px;height:15px;cursor:pointer;accent-color:var(--accent,#3b6fe0)}
+  .sel-all{display:inline-flex;align-items:center;gap:4px;font-size:11.5px;font-weight:600;color:var(--ink2);cursor:pointer}
+  .sel-all input{width:15px;height:15px;cursor:pointer;accent-color:var(--accent,#3b6fe0)}
+  .del-sel{border-style:dashed;color:#c0392b;border-color:#f0c0bb;background:#fff6f5}
+  .del-sel:hover{background:#fdeceb;border-color:#e06b5e}
+  .restore-btn{border-style:dashed;color:#1d7a4d;border-color:#bfe3cd;background:#f3fbf6}
+  .restore-btn:hover{background:#e7f6ee;border-color:#54b07f}
+  .total-cond-block{background:#eef4ff;border:1px solid #c7d9fb;border-radius:8px}
+  .total-cond-block .total-cond{font-weight:700;color:var(--accent-d)}
+  .addrow-btn{border-style:dashed;color:var(--accent-d);background:#f3f7ff;border-color:#bcd0fb}
+  .addrow-btn:hover{background:#e8f0ff;border-color:var(--accent)}
+  .mini:hover{border-color:var(--accent);color:var(--accent)}
+  .auto-rows{display:flex;align-items:center;gap:6px;margin-left:auto}
+  .auto-rows input{width:54px;border:1px solid var(--line);border-radius:6px;padding:5px;text-align:center;font:inherit}
+
+  /* totals strip */
+  .totbar{position:sticky;bottom:0;background:linear-gradient(180deg,#fff,#f6f8fc);
+    border-top:1px solid var(--line);box-shadow:0 -4px 16px rgba(15,27,45,.07);
+    padding:10px 16px;display:flex;gap:14px;overflow-x:auto;align-items:center;z-index:30}
+  .totbar .lbl{font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--ink2);font-weight:700}
+  .tot-cell{background:#fff;border:1px solid var(--line);border-radius:9px;padding:7px 12px;flex:none;min-width:96px}
+  .tot-cell .t{font-size:10px;color:var(--ink2);font-weight:700;white-space:nowrap}
+  .tot-cell .v{font-size:15px;font-weight:800;font-variant-numeric:tabular-nums;color:var(--ink)}
+  .tot-cell.zero{opacity:.4}
+  .tot-cell.pipe{border-color:#bcd0fb;background:#f3f7ff}
+  .tot-cell.pipe .v{color:var(--accent-d)}
+  .tot-cell.wire{border-color:#bfe6cf;background:#f2fbf6}
+  .tot-cell.wire .v{color:var(--green)}
+
+  @media print{
+    header,aside,.totbar,.circ-foot,.add-circ,.tablero-head .fld button,.row-del,.circ-del,.tree-item .del{display:none!important}
+    body{background:#fff} main{padding:0}
+    .circ,.tablero-head{box-shadow:none;break-inside:avoid}
+  }
+  .add-circ{margin:4px 0 24px;width:100%;border:2px dashed var(--line);background:#f7f9fc;
+    border-radius:12px;padding:14px;cursor:pointer;font-weight:700;color:var(--ink2);font-size:13px}
+  .add-circ:hover{border-color:var(--accent);color:var(--accent);background:#f0f5ff}
+  .toast{position:fixed;bottom:70px;left:50%;transform:translateX(-50%);background:var(--ink);color:#fff;
+    padding:10px 18px;border-radius:10px;font-size:12.5px;font-weight:600;z-index:99;box-shadow:var(--shadow);opacity:0;transition:.25s;pointer-events:none}
+  .toast.show{opacity:1;bottom:80px}
+
+  /* ---------- modal ---------- */
+  .modal-bg{position:fixed;inset:0;background:rgba(15,27,45,.5);
+    backdrop-filter:blur(3px);display:none;align-items:center;justify-content:center;z-index:200}
+  .modal-bg.show{display:flex;animation:fade .15s ease}
+  @keyframes fade{from{opacity:0}to{opacity:1}}
+  .modal{background:#fff;border-radius:16px;padding:22px 24px;width:min(440px,92vw);
+    box-shadow:0 24px 60px rgba(15,27,45,.35);animation:pop .18s ease}
+  @keyframes pop{from{transform:translateY(12px) scale(.98);opacity:0}to{transform:none;opacity:1}}
+  .modal h3{margin:0 0 16px;font-size:18px;color:var(--ink)}
+  .m-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  .m-fld{display:flex;flex-direction:column;gap:4px}
+  .m-fld:first-child{grid-column:1 / -1}
+  .m-fld label{font-size:10.5px;font-weight:700;color:var(--ink2);text-transform:uppercase;letter-spacing:.5px}
+  .m-fld input,.m-fld select{border:1px solid var(--line);border-radius:8px;padding:9px 11px;font:inherit;font-size:13.5px;background:#fff}
+  .m-fld input:focus,.m-fld select:focus{outline:2px solid #bcd0fb;border-color:var(--accent)}
+  .m-hint{font-size:11.5px;color:var(--ink2);margin:14px 0 4px;line-height:1.4}
+  .m-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:14px}
+  .btn.ghost.dark{color:var(--ink2);border-color:var(--line);background:#fff}
+  .btn.ghost.dark:hover{background:#f1f4f9}
+  /* catálogo de montantes modal */
+  .alt-modal{width:min(620px,95vw);max-height:88vh;display:flex;flex-direction:column}
+  .tipos-wrap{display:flex;flex-direction:column;gap:10px;overflow:auto;padding:2px;margin-bottom:12px}
+  .tipo-card{border:1px solid var(--line);border-radius:10px;padding:10px 12px;background:#f8fafc}
+  .tipo-head{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+  .tipo-name{flex:1;border:1px solid var(--line);border-radius:7px;padding:7px 9px;font:inherit;font-size:13px;font-weight:700;color:var(--ink);background:#fff;text-transform:uppercase}
+  .tipo-base{font-size:9.5px;font-weight:800;color:var(--accent-d);background:#e2ecfe;border:1px solid #c4d8fb;border-radius:20px;padding:2px 8px;text-transform:uppercase;letter-spacing:.5px}
+  .tipo-alts{display:flex;flex-wrap:wrap;gap:8px}
+  .alt-row{display:flex;align-items:center;gap:5px;background:#fff;border:1px solid var(--line2);border-radius:8px;padding:4px 6px}
+  .alt-row input{width:80px;border:1px solid var(--line);border-radius:6px;padding:6px 8px;font:inherit;font-size:13px;text-align:right}
+  .alt-row .u{font-size:11px;color:var(--ink2);font-weight:700}
+  .alt-row .x,.tipo-head .x{color:#b42318;background:#fdecea;border:1px solid #f6c9c2;border-radius:6px;width:26px;height:28px;cursor:pointer;font-weight:700;flex:none}
+  .alt-row .x:hover,.tipo-head .x:hover{background:#f9d8d3}
+  .mini.addh{flex:none}
+  .alt-newtype{display:flex;gap:8px;border-top:1px solid var(--line2);padding-top:12px}
+  .alt-newtype input{flex:1;border:1px solid var(--line);border-radius:8px;padding:9px 11px;font:inherit;font-size:13px}
+  .alt-newtype input:focus{outline:2px solid #bcd0fb;border-color:var(--accent)}
+  /* insert montante group in footer */
+  .ins-grp{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+  .mini.ins{background:#eef4ff;border-style:solid;border-color:#bcd0fb;color:var(--accent-d)}
+  .ins-sel{font-size:11.5px;padding:6px 8px;border-radius:7px;border:1px solid var(--line);background:#fff;cursor:pointer;font-weight:600;color:var(--ink2)}
+  .ins-sel:hover{border-color:var(--accent);color:var(--accent)}
+</style>
+</head>
+<body>
+<header>
+  <div class="brand">
+    <div class="logo">⚡</div>
+    <div>
+      <h1>Metrado IIEE — Tableros de Distribución</h1>
+      <div class="sub">Cálculo de tubería y conductores por circuito · Normal / Luminarias / Tomacorrientes</div>
+    </div>
+  </div>
+  <button class="btn ghost" id="btnAlturas">📏 Alturas</button>
+  <button class="btn ghost" id="btnPrint">🖨 Imprimir</button>
+  <button class="btn green" id="btnXlsx">⬇ Exportar Excel</button>
+  <button class="btn primary" id="btnAddTab">＋ Nuevo Tablero</button>
+</header>
+
+<div class="shell">
+  <aside>
+    <div class="meta-card">
+      <label>Proyecto</label>
+      <textarea id="mProj" placeholder="Nombre del proyecto…"></textarea>
+      <label>Departamento</label>
+      <input id="mDpto" placeholder="APURIMAC">
+      <label>Realizado por</label>
+      <input id="mRea" placeholder="Ing. responsable">
+    </div>
+    <div class="side-h"><span>Tableros</span></div>
+    <div id="tree"></div>
+  </aside>
+  <main id="main"></main>
+</div>
+
+<div class="totbar" id="totbar"></div>
+<div class="toast" id="toast"></div>
+
+<!-- ===== Modal nuevo tablero ===== -->
+<div class="modal-bg" id="modalBg">
+  <div class="modal">
+    <h3>Nuevo tablero</h3>
+    <div class="m-grid">
+      <div class="m-fld"><label>Nombre del tablero</label>
+        <input id="nbNombre" placeholder="Ej. TD-1.2IN" autocomplete="off"></div>
+      <div class="m-fld"><label>Cantidad de circuitos</label>
+        <input id="nbCant" type="number" min="1" max="60" value="4"></div>
+      <div class="m-fld"><label>Nivel</label>
+        <select id="nbNivel"></select></div>
+      <div class="m-fld"><label>Bloque</label>
+        <input id="nbBloque" placeholder="Ej. BLOQUE A" value="BLOQUE A"></div>
+    </div>
+    <p class="m-hint">Se crearán los circuitos C-1 … C-N vacíos, listos para ingresar longitudes.</p>
+    <div class="m-actions">
+      <button class="btn ghost dark" id="nbCancel">Cancelar</button>
+      <button class="btn primary" id="nbCreate">Crear tablero</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== Modal alturas globales (catálogo de montantes) ===== -->
+<div class="modal-bg" id="altBg">
+  <div class="modal alt-modal">
+    <h3>Catálogo de montantes (alturas referenciales)</h3>
+    <p class="m-hint" style="margin-top:0">Define los tipos de montante y sus alturas para todo el proyecto. Cada tipo puede tener varias alturas. La longitud del montante = altura (editable luego en cada circuito). Los circuitos nuevos nacen con un montante de Tablero; los demás se insertan a demanda.</p>
+    <div id="tiposWrap" class="tipos-wrap"></div>
+    <div class="alt-newtype">
+      <input id="newTipoName" placeholder="Nuevo tipo (ej. LUMINARIA EMERGENCIA)" autocomplete="off">
+      <button class="btn primary" id="addTipo">＋ Agregar tipo</button>
+    </div>
+    <div class="m-actions">
+      <button class="btn ghost dark" id="altClose">Cerrar</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ============ CONFIG ============ */
+// Tubería: material + diámetro (selección en dos pasos)
+const PIPE_MATS = ['PVC','PVC-SCH40','EMT','IMC'];
+const PIPE_DIAS = ['1/2"','3/4"','1"','1 1/2"','2"','3"','4"'];
+// Cable: material + diámetro
+const WIRE_MATS = ['NH-80','NH-90','LSOH 80','LSOH 90','N2XOH','COBRE DESNUDO'];
+const WIRE_DIAS = ['2.50 mm²','4.00 mm²','6.00 mm²','10.00 mm²','16.00 mm²','25.00 mm²','35.00 mm²','50.00 mm²','70.00 mm²'];
+
+const DEF_PIPE_MAT='PVC', DEF_PIPE_DIA='3/4"';
+const DEF_WIRE_MAT='LSOH 90', DEF_WIRE_DIA='2.50 mm²';
+
+// claves/etiquetas de columna combinadas
+const pipeKey=(m,d)=>`P|${m}|${d}`;
+const wireKey=(m,d)=>`W|${m}|${d}`;
+const pipeLabel=(m,d)=>`${d} ${m}`;
+const wireLabel=(m,d)=>`${d} ${m}`;
+function colLabel(k){
+  if(!k) return '';
+  const [t,m,d]=k.split('|');
+  return t==='P'?pipeLabel(m,d):wireLabel(m,d);
+}
+
+// ===== Catálogo GLOBAL de montantes (referenciales) =====
+// Cada tipo: {key, nombre (para descripción), alturas:[...], base:true si entra auto}
+const fmtH=h=>(+h).toFixed(2);
+const DEFAULT_TIPOS = [
+  {key:'tablero',     nombre:'TABLERO',        alturas:[1.80], base:true },
+  {key:'tomac',       nombre:'TOMACORRIENTE NORMAL',  base:false, clases:true, veces:true, alturas:[{clase:'PISO',h:0.00},{clase:'TECHO',h:0.00},0.40,1.20] },
+  {key:'tomac_estab', nombre:'TOMACORRIENTE ESTABILIZADO',  base:false, clases:true, veces:true, alturas:[{clase:'PISO',h:0.00},{clase:'TECHO',h:0.00},0.40,1.20] },
+  {key:'fuerza',      nombre:'FUERZA',         base:false, clases:true, veces:true, alturas:[{clase:'PISO',h:0.00},{clase:'TECHO',h:0.00},1.20] },
+  {key:'interruptor', nombre:'INTERRUPTORES',  alturas:[1.40], base:false },
+  {key:'luminaria',   nombre:'LUMINARIAS',     base:false, clases:true, alturas:[{clase:'PISO',h:0.00},{clase:'TECHO',h:0.00},2.20] },
+  {key:'caja',        nombre:'CAJA DE PASO',   base:false, clases:true, veces:true, alturas:[{clase:'PISO',h:0.00},{clase:'TECHO',h:0.00},0.40,2.20] },
+];
+function tipoTieneVeces(tipoKey){ return !!(getTipo(tipoKey)||{}).veces; }
+const VECES_DEF=2;
+// tipos con clasificación PISO/TECHO
+const CLASES = ['PISO','TECHO'];
+function tipoTieneClase(tipoKey){ return !!(getTipo(tipoKey)||{}).clases; }
+// normaliza una entrada de altura del catálogo a {clase, h, label}
+function altEntry(tp, idx){
+  const a=(tp.alturas||[])[idx];
+  if(a==null) return {clase:'', h:0, label:'H: 0.00 m'};
+  if(typeof a==='object') return {clase:a.clase||'', h:+a.h||0, label:`${a.clase||''} H:${fmtH(+a.h||0)}m`.trim()};
+  return {clase:'', h:+a||0, label:`H: ${fmtH(+a||0)} m`};
+}
+// descripción de un montante a partir del tipo + altura
+function montLabel(tipo,h){return `MONTANTE ${tipo.nombre}, H: ${fmtH(h)}M`;}
+
+// Filas fijas que en la hoja van con valores estándar
+const FIXED_ROWS = [
+  {desc:'CONEXION DE TIERRA EN TABLERO', cnt:1, len:2.5, kind:'tierra'},
+  {desc:'PEINADO DE CABLE EN TABLERO', cnt:3, len:2.5, kind:'peinado'},
+];
+
+const NIVELES = ['INICIAL','PRIMARIA','SECUNDARIA','EXTERIOR'];
+
+/* ============ STATE ============ */
+var DB = load();
+var activeId = DB.tableros[0]?.id || null;
+
+function load(){
+  // no localStorage in artifacts -> in-memory seed
+  return {
+    meta:{proj:'MEJORAMIENTO Y AMPLIACIÓN DEL SERVICIO EDUCATIVO N° 759 / IE N° 50833 ANTONIO CANO CÁCERES — PUMAMARCA, TAMBOBAMBA, COTABAMBAS, APURÍMAC',
+          dpto:'APURIMAC', rea:'ING. LUIS ENRIQUE GAMVINI PONCE DE LEON'},
+    montAdd: 0.20,   // adicional fijo que se suma a la altura de TODOS los montantes
+    tipos: JSON.parse(JSON.stringify(DEFAULT_TIPOS)),
+    tableros:[ demoTablero() ]
+  };
+}
+function uid(){return Math.random().toString(36).slice(2,9)}
+function curTipos(){ try{ if(DB && DB.tipos) return DB.tipos; }catch(e){} return DEFAULT_TIPOS; }
+function curMontAdd(){ try{ if(DB && DB.montAdd!=null) return +DB.montAdd||0; }catch(e){} return 0.20; }
+function getTipo(key){ return curTipos().find(t=>t.key===key) || {key,nombre:key.toUpperCase(),alturas:[0]}; }
+// clave de una (tipo, índice de altura)
+function montKey(tipoKey,hi){return `${tipoKey}#${hi}`;}
+// recorre todas las alturas del catálogo -> [{tipo, hi, h, clase, key, label}]
+function catalogRows(){
+  const out=[];
+  curTipos().forEach(tp=>(tp.alturas||[]).forEach((a,hi)=>{
+    const e=altEntry(tp,hi);
+    out.push({tipo:tp, hi, h:e.h, clase:e.clase, key:montKey(tp.key,hi),
+      label:`${tp.nombre}${e.clase?' '+e.clase:''} H:${fmtH(e.h)}M`});
+  }));
+  return out;
+}
+
+function demoTablero(){
+  return {
+    id:uid(), nivel:'INICIAL', bloque:'BLOQUE A', nombre:'TD-1.2IN', plano:'IE-02',
+    alturaPT: 2.40,   // altura piso-techo del tablero (se usa en montantes de clase TECHO)
+    circuitos:[ newCircuit('C-1','2-1x2.5mm² LSOH 90 + 1x2.5mm²/T') ]
+  };
+}
+function newCircuit(tag,desc,pm,pd,wm,wd){
+  return {
+    id:uid(), tag:tag||'', desc:desc||'', tipoCirc:'mixto', recorrido:'piso',
+    pipes:[ {mat:pm||DEF_PIPE_MAT, dia:pd||DEF_PIPE_DIA} ],
+    wires:[ {role:'FASE',mat:wm||DEF_WIRE_MAT,dia:wd||DEF_WIRE_DIA,cnt:1},
+            {role:'NEUTRO',mat:wm||DEF_WIRE_MAT,dia:wd||DEF_WIRE_DIA,cnt:1},
+            {role:'TIERRA',mat:wm||DEF_WIRE_MAT,dia:wd||DEF_WIRE_DIA,cnt:1} ],
+    horiz:[ tramo(tendidoDesc(tag),3,0) ],
+    montLines: [],
+    montExtra: [],
+    conexExtra: [],
+    fixed: FIXED_ROWS.map(f=>({...f})),
+    salidas:{cnt:3,len:0.50}
+  };
+}
+// recorrido por defecto según tipo de circuito
+function recorridoDefault(tipoCirc){ return tipoCirc==='luminaria' ? 'techo' : 'piso'; }
+// tablero que contiene a un circuito (para leer su altura piso-techo)
+function circTablero(c){ try{ return DB.tableros.find(t=>t.circuitos.some(x=>x.id===c.id)); }catch(e){ return null; } }
+function tabAltPT(c){ const t=circTablero(c); return (t&&t.alturaPT!=null)?(+t.alturaPT||0):2.40; }
+// altura piso-techo EFECTIVA del circuito: override propio o la del tablero
+function circAltPT(c){ return (c.altPT!=null && c.altPT!=='')?(+c.altPT||0):tabAltPT(c); }
+// tipos de circuito y qué cajas de montante muestran
+const CIRC_TIPOS = [
+  {key:'luminaria',    label:'Luminaria'},
+  {key:'tomacorriente',label:'Tomacorriente'},
+  {key:'estabilizado', label:'Estabilizado'},
+  {key:'fuerza',       label:'Fuerza'},
+  {key:'mixto',        label:'Mixto'},
+];
+// keys de tipo de montante visibles según el tipo de circuito (null = todas)
+function tiposVisibles(tipoCirc){
+  if(tipoCirc==='luminaria')     return ['tablero','luminaria','interruptor','caja'];
+  if(tipoCirc==='tomacorriente') return ['tablero','tomac','tomac_estab','caja'];
+  if(tipoCirc==='estabilizado')  return ['tablero','tomac_estab','tomac','caja'];
+  if(tipoCirc==='fuerza')        return ['tablero','fuerza','caja'];
+  return null;
+}
+function tramo(desc,cnt,len,und){return {id:uid(),desc:desc||'PROY. HORIZONTAL',und:(und==null?1:und),cnt:cnt||3,len:len||0}}
+// descripción por defecto del tramo horizontal: "<NOMBRE CIRCUITO> / TENDIDO DE RED ELECTRICA"
+function tendidoDesc(tag){ const t=(tag||'').trim(); return (t||'C')+' / TENDIDO DE RED ELECTRICA'; }
+function esTendidoDefault(d){ d=(d||'').trim(); return /\/\s*TENDIDO DE RED ELECTRICA$/i.test(d) || d==='PROY. HORIZONTAL' || d==='C / PROY. HORIZONTAL'; }
+const MAX_PIPES=2, MAX_WIRES=3;
+// migra el modelo viejo (pipeMat/wireMat/cnt) a pipes[]/wires[]
+function ensurePW(c){
+  if(!Array.isArray(c.pipes)){
+    c.pipes=[{mat:c.pipeMat||DEF_PIPE_MAT, dia:c.pipeDia||DEF_PIPE_DIA}];
+  }
+  if(!Array.isArray(c.wires) || !c.wires.length){
+    c.wires=[{mat:c.wireMat||DEF_WIRE_MAT, dia:c.wireDia||DEF_WIRE_DIA, cnt:(c.cnt!=null?+c.cnt:1)}];
+  }
+  // normalizar SIEMPRE a 3 cables con rol FASE / NEUTRO / TIERRA
+  const roles=['FASE','NEUTRO','TIERRA'];
+  if(c.wires.length!==3 || !c.wires.every(w=>w&&w.role)){
+    const base=c.wires[0]||{mat:DEF_WIRE_MAT,dia:DEF_WIRE_DIA,cnt:1};
+    c.wires=roles.map((r,i)=>{
+      const src=c.wires[i]||{mat:base.mat,dia:base.dia,cnt:1};
+      return {role:r, mat:src.mat||DEF_WIRE_MAT, dia:src.dia||DEF_WIRE_DIA, cnt:(src.cnt!=null?+src.cnt:1)};
+    });
+  }
+  // limpiar campos viejos
+  delete c.pipeMat; delete c.pipeDia; delete c.wireMat; delete c.wireDia;
+  return c;
+}
+// columnas de cable agrupadas por material+calibre (suma de #cond de los cables que coinciden)
+function wireCols(c){
+  ensurePW(c);
+  const map=new Map();
+  c.wires.forEach(w=>{
+    const k=wireKey(w.mat,w.dia);
+    if(!map.has(k)) map.set(k,{key:k, mat:w.mat, dia:w.dia, cnt:0, roles:[]});
+    const col=map.get(k); col.cnt+=(+w.cnt||0); col.roles.push(w.role);
+  });
+  return [...map.values()];
+}
+// total de conductores del circuito (suma de #C de FASE + NEUTRO + TIERRA)
+function circCondTotal(c){ ensurePW(c); return c.wires.reduce((s,w)=>s+(+w.cnt||0),0); }
+// #Cond efectivo de una columna para una fila: si la fila tiene override (ov), se reparte
+// proporcionalmente entre columnas; si no, usa el #C propio del cable (col.cnt)
+function condEff(ov, col, tot){ return (ov==null||tot<=0) ? col.cnt : col.cnt*(ov/tot); }
+// valor a mostrar en la celda #Cond de una fila (override si existe, si no el total)
+function condShow(c, ov){ return ov!=null ? +ov : circCondTotal(c); }
+// nº de conductores del cable de TIERRA (para la fila fija "CABLE A TIERRA")
+function tierraCnt(c){ ensurePW(c); const w=c.wires.find(x=>x.role==='TIERRA')||c.wires[2]; return +(w&&w.cnt)||0; }
+// ¿se muestra/edita la columna #COND? Solo en circuitos Luminaria o Mixto Y con 1 sola
+// columna de cable (mismo material+calibre). Si el cable varía, o el circuito es
+// tomacorriente/estabilizado/fuerza, el #Cond se oculta y el cálculo es automático.
+function condColShown(c){
+  const tc=c.tipoCirc||'mixto';
+  if(tc!=='luminaria' && tc!=='mixto') return false;
+  return wireCols(c).length===1;
+}
+// override por fila efectivo: si la columna #Cond está oculta, se ignora (cálculo automático)
+function rowOv(c, stored){ return condColShown(c) ? (stored!=null?+stored:null) : null; }
+// índice de tubería asignada a una fila (por defecto la primera). Se acota al rango válido.
+function rowPipe(c, stored){ const n=c.pipes.length; let pi=parseInt(stored)||0; if(pi<0||pi>=n) pi=0; return pi; }
+// #cond "principal" del circuito = el del primer cable (para horizontales/montantes que comparten longitud)
+function circCnt(c){ ensurePW(c); return +(c.wires[0]?.cnt)||0; }
+// asegura estructura montLines (migra desde montQty si viniera de versión previa)
+function ensureLines(c){
+  if(!Array.isArray(c.montLines)){
+    c.montLines=[];
+    if(c.montQty){
+      Object.entries(c.montQty).forEach(([k,v])=>{
+        const [tipoKey,hi]=k.split('#');
+        if(tipoKey!=='tablero' && +v>0) c.montLines.push({tipoKey,hi:+hi,und:+v});
+      });
+    }
+    delete c.montQty;
+  }
+  if(!Array.isArray(c.montExtra)) c.montExtra=[];
+  if(!Array.isArray(c.conexExtra)) c.conexExtra=[];
+  if(c.hideTab==null) c.hideTab=false;
+  if(c.hideConex==null) c.hideConex=false;
+  return c;
+}
+// altura efectiva de una línea: si tiene override propio (ln.h) lo usa; si no, el del catálogo
+function lineAltura(tipoKey,hi,ln){
+  if(ln && ln.h!=null && ln.h!=='') return +ln.h||0;
+  const tp=getTipo(tipoKey); const e=altEntry(tp,hi);
+  return e.h;
+}
+// clase de una línea (desde el catálogo según hi)
+function lineClase(tipoKey,hi){
+  const tp=getTipo(tipoKey); if(!tp.clases) return '';
+  return altEntry(tp,hi).clase||'';
+}
+
+/* ============ HELPERS ============ */
+const $=s=>document.querySelector(s);
+function fmt(n){ if(!n) return ''; return (Math.round(n*1e6)/1e6).toLocaleString('es-PE',{maximumFractionDigits:2}); }
+function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('show');clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove('show'),1800);}
+
+// montantes efectivos de un circuito: tablero(1) + líneas por tipo + extras
+// Recorrido PISO: altura numérica tal cual. Recorrido TECHO: (AltPT − altura), si negativo usa la altura sin restar.
+// Las clases PISO/TECHO del catálogo (0.00) NO se ajustan.
+function circMontantes(c){
+  ensureLines(c); ensurePW(c);
+  const add=curMontAdd();
+  const techo = (c.recorrido==='techo');
+  const aPT=circAltPT(c);
+  // aplica ajuste de recorrido a una altura BASE numérica (no a clases piso/techo)
+  const ajusta=(base)=>{
+    if(!techo) return base;            // por piso: tal cual
+    const r=aPT-base;                  // por techo: AltPT - altura
+    return (r<0)? base : r;            // si negativo, usar la altura sin restar
+  };
+  const rows=[];
+  // 1) tablero siempre 1 (altura numérica -> se ajusta por recorrido)
+  const tb=getTipo('tablero');
+  const tbDef=(tb.alturas&&tb.alturas[0]!=null)?tb.alturas[0]:1.80;
+  const tbBase=(c.tableroH!=null && c.tableroH!=='')?(+c.tableroH||0):tbDef;
+  if(!c.hideTab){
+    const adj=ajusta(tbBase);
+    const altE=+(adj+add).toFixed(4);
+    const long=+(altE*1).toFixed(4);
+    rows.push({label:`MONTANTE ${tb.nombre} H:${fmtH(tbBase)}M × 1 und`, und:1, veces:1, alt:altE, base:tbBase, long, tipoKey:'tablero', fixed:true, cond:(c.tabCond!=null?+c.tabCond:null), pipe:(c.tabPipe!=null?+c.tabPipe:0)});
+  }
+  // 2) líneas configuradas
+  c.montLines.forEach((ln,i)=>{
+    const und=+ln.und||0; if(und<=0) return;
+    const tp=getTipo(ln.tipoKey);
+    const clase = tp.clases ? lineClase(ln.tipoKey,ln.hi) : '';
+    const hBase=lineAltura(ln.tipoKey,ln.hi,ln);
+    // las líneas de clase PISO/TECHO (catálogo 0.00) NO se ajustan; las numéricas sí
+    const esClaseFija = (clase==='PISO' || clase==='TECHO');
+    const adj = esClaseFija ? hBase : ajusta(hBase);
+    const altE=+(adj+add).toFixed(4);
+    const veces = tp.veces ? (+ln.veces||1) : 1;
+    const long=+(altE*und*veces).toFixed(4);
+    const nombreClase = clase ? `${tp.nombre} ${clase}` : tp.nombre;
+    const hPart = esClaseFija ? '' : ` H:${fmtH(hBase)}M`;
+    rows.push({label:`MONTANTE ${nombreClase}${hPart} × ${und} und${veces>1?(' × '+veces):''}`, und, veces, alt:altE, base:hBase, long, tipoKey:ln.tipoKey, clase, lineIdx:i, cnt:(ln.cnt!=null?+ln.cnt:null), cond:(ln.cond!=null?+ln.cond:null), pipe:(ln.pipe!=null?+ln.pipe:0)});
+  });
+  // 3) montantes manuales (longitud exacta tal cual, sin adicional ni ajuste de recorrido)
+  (c.montExtra||[]).forEach((m,i)=>{
+    const base=+m.len||0;
+    const long=+(base*(+m.und||1)).toFixed(4);
+    rows.push({label:m.desc||'MONTANTE …', desc:(m.desc||''), und:+m.und||1, veces:1, alt:base, base, long, extra:i, cnt:(m.cnt!=null?+m.cnt:null), cond:(m.cond!=null?+m.cond:null), pipe:(m.pipe!=null?+m.pipe:0)});
+  });
+  return rows;
+}
+
+// metrado total del circuito -> tubería (única, geométrica) y cable por cada wire
+// pipeLen = suma de longitudes geométricas (cada tubería lleva lo mismo)
+// wireLen[i] = pipeLen-equivalente × cnt del wire i ... pero el cnt varía por fila:
+// para horizontales/complementarios el cnt es propio del tramo; para montantes usamos el cnt del wire.
+function circMetrics(c){
+  ensurePW(c);
+  const cols=wireCols(c);
+  const tot=circCondTotal(c);
+  const pipeLen=c.pipes.map(()=>0);   // longitud por cada tubería (cada fila va a UNA sola)
+  const wireLen=cols.map(()=>0);
+  const addWire=(G,ov)=>{ cols.forEach((col,ci)=>{ wireLen[ci]+= G*condEff(ov,col,tot); }); };
+  // horizontales
+  c.horiz.forEach(t=>{ const L=+t.len||0, u=(t.und==null?1:+t.und)||0;
+    pipeLen[rowPipe(c,t.pipe)] += L*u;
+    addWire(u*L, rowOv(c,t.cond));
+  });
+  // montantes
+  circMontantes(c).forEach(m=>{ pipeLen[rowPipe(c,m.pipe)]+=m.long;
+    addWire(m.long, rowOv(c,m.cond));
+  });
+  // conexiones: longitud × #C de cada cable (agrupado por material+calibre)
+  c.fixed.forEach(f=>{ if(f.hidden) return; const base=1*(+f.len||0);
+    if(f.kind==='tierra'){ const tc=tierraCnt(c);
+      cols.forEach((col,ci)=>{ if(col.roles.includes('TIERRA')) wireLen[ci]+= base*tc; });
+    } else {
+      addWire(base, rowOv(c,f.cond));
+    }
+  });
+  if(!c.hideConex){ const base=circConexUnd(c)*(+c.salidas.len||0);
+    addWire(base, rowOv(c,c.salidas.cond));
+  }
+  (c.conexExtra||[]).forEach(x=>{ const base=(+x.und||0)*(+x.len||0);
+    addWire(base, rowOv(c,x.cond));
+  });
+  return {pipeLen, wireLen, cols};
+}
+// compat: {pipe, wire} — wire = total de cable (suma de todas las columnas)
+function circTotals(c){
+  const m=circMetrics(c);
+  return {pipe:m.pipeLen.reduce((a,b)=>a+b,0), wire:m.wireLen.reduce((a,b)=>a+b,0)};
+}
+// acumula por cada tubería y cada cable definido (clave material|diámetro)
+function addCircToAcc(c,acc){
+  ensurePW(c);
+  const m=circMetrics(c);
+  c.pipes.forEach((p,pi)=>{ const pk=pipeKey(p.mat,p.dia); acc[pk]=(acc[pk]||0)+(m.pipeLen[pi]||0); });
+  m.cols.forEach((col,ci)=>{ acc[col.key]=(acc[col.key]||0)+(m.wireLen[ci]||0); });
+}
+function tableroAcc(t){const a={};t.circuitos.forEach(c=>addCircToAcc(c,a));return a;}
+
+/* ============ RENDER: tree ============ */
+function renderTree(){
+  const el=$('#tree');
+  if(!DB.tableros.length){el.innerHTML='<div class="empty">Sin tableros.<br>Crea uno con “＋ Nuevo Tablero”.</div>';return;}
+  el.innerHTML=DB.tableros.map(t=>`
+    <div class="tree-item ${t.id===activeId?'active':''}" data-id="${t.id}">
+      <span class="dot"></span>
+      <span class="nm" title="${t.nivel} · ${t.bloque}">${esc(t.nombre)||'(sin nombre)'}</span>
+      <span class="ct">${t.circuitos.length}c</span>
+      <span class="del" data-del="${t.id}">✕</span>
+    </div>`).join('');
+  el.querySelectorAll('.tree-item').forEach(it=>{
+    it.onclick=e=>{ if(e.target.dataset.del)return; activeId=it.dataset.id; renderAll(); };
+  });
+  el.querySelectorAll('[data-del]').forEach(d=>{
+    d.onclick=e=>{e.stopPropagation();
+      if(confirm('¿Eliminar este tablero?')){
+        DB.tableros=DB.tableros.filter(x=>x.id!==d.dataset.del);
+        if(activeId===d.dataset.del) activeId=DB.tableros[0]?.id||null;
+        renderAll();}};
+  });
+}
+
+/* ============ RENDER: main ============ */
+function renderMain(){
+  const m=$('#main');
+  const t=DB.tableros.find(x=>x.id===activeId);
+  if(!t){m.innerHTML='<div class="empty" style="margin-top:80px">Selecciona o crea un tablero para empezar.</div>';return;}
+  const acc=tableroAcc(t);
+  const cableTot=Object.entries(acc).filter(([k])=>k.startsWith('W|')).reduce((s,[,v])=>s+v,0);
+
+  m.innerHTML=`
+    <div class="crumd crumb"><b>${esc(t.nivel)}</b> › ${esc(t.bloque)} › <b>${esc(t.nombre)}</b></div>
+    <div class="cat-panel" id="catPanel"></div>
+    <div class="tablero-head">
+      <div class="fld"><label>Nivel</label>
+        <select id="tNivel">${NIVELES.map(n=>`<option ${n===t.nivel?'selected':''}>${n}</option>`).join('')}</select></div>
+      <div class="fld"><label>Bloque</label><input id="tBloque" value="${esc(t.bloque)}"></div>
+      <div class="fld"><label>Tablero</label><input id="tNombre" value="${esc(t.nombre)}"></div>
+      <div class="fld"><label>Alt. piso-techo (m)</label><input id="tAltPT" type="number" step="0.05" value="${t.alturaPT!=null?t.alturaPT:2.40}" style="min-width:110px" title="Altura de piso a techo del tablero (valor por defecto para sus circuitos)"></div>
+      <div class="th-tot"><div class="lbl">Total cable (m)</div><div class="val">${fmt(cableTot)||'0'}</div></div>
+    </div>
+    <div id="circs"></div>
+    <button class="add-circ" id="addCirc">＋ Agregar circuito</button>
+  `;
+  renderCatPanel();
+  $('#tNivel').onchange=e=>{t.nivel=e.target.value;renderTree();renderTotbar();updateCrumb(t);};
+  $('#tBloque').oninput=e=>{t.bloque=e.target.value;};
+  $('#tNombre').oninput=e=>{t.nombre=e.target.value;renderTree();updateCrumb(t);};
+  $('#tAltPT').oninput=e=>{t.alturaPT=parseFloat(e.target.value)||0; renderCircs(t); updateHeadTotal(t); renderTotbar();};
+  $('#addCirc').onclick=()=>{
+    const n=t.circuitos.length+1;
+    const p=t.circuitos.at(-1);
+    t.circuitos.push(newCircuit('C-'+n,'',p?.pipeMat,p?.pipeDia,p?.wireMat,p?.wireDia));
+    renderMain();renderTree();renderTotbar();
+  };
+  renderCircs(t);
+}
+function updateCrumb(t){const c=document.querySelector('.crumb');if(c)c.innerHTML=`<b>${esc(t.nivel)}</b> › ${esc(t.bloque)} › <b>${esc(t.nombre)}</b>`;}
+
+// Panel superior siempre visible: catálogo de montantes por defecto (alturas)
+function renderCatPanel(){
+  const el=$('#catPanel'); if(!el)return;
+  const chips=curTipos().map(tp=>{
+    const hs=(tp.alturas||[]).map((a,hi)=>{const e=altEntry(tp,hi);
+      return `<span class="cat-h">${e.clase?e.clase+' ':''}${fmtH(e.h)}m</span>`;}).join('');
+    return `<div class="cat-tipo"><span class="cat-nm">${esc(tp.nombre)}</span>${hs||'<span class="cat-h cat-0">—</span>'}</div>`;
+  }).join('');
+  el.innerHTML=`
+    <div class="cat-title">
+      <span>📏 Montantes por defecto (alturas del proyecto)</span>
+      <span class="cat-add">Adicional a cada montante:
+        <input id="montAddIn" type="number" step="0.05" value="${curMontAdd()}"> m</span>
+      <button class="btn-mini-link" id="catEdit">Editar catálogo</button>
+    </div>
+    <div class="cat-chips">${chips}</div>
+    <div class="cat-foot">A cada montante se le suma el <b>adicional</b> (${fmtH(curMontAdd())} m) para el cálculo. La columna “ALTURA/LONG” ya muestra el valor sumado.</div>`;
+  $('#catEdit').onclick=openAlturas;
+  const ma=$('#montAddIn');
+  if(ma) ma.oninput=e=>{
+    DB.montAdd=parseFloat(e.target.value)||0;
+    // recalcular solo los circuitos y totales, sin re-dibujar este input
+    const t=DB.tableros.find(x=>x.id===activeId);
+    if(t){ renderCircs(t); updateHeadTotal(t); renderTotbar(); }
+    // actualizar la nota del pie sin tocar el input
+    const foot=el.querySelector('.cat-foot');
+    if(foot) foot.innerHTML=`A cada montante se le suma el <b>adicional</b> (${fmtH(curMontAdd())} m) para el cálculo. La columna “ALTURA/LONG” ya muestra el valor sumado.`;
+  };
+}
+
+function renderCircs(t){
+  const wrap=$('#circs');
+  wrap.innerHTML=t.circuitos.map((c,ci)=>circHTML(c,ci)).join('');
+  // bind each circuit
+  t.circuitos.forEach((c,ci)=>bindCirc(t,c,ci));
+}
+
+function circHTML(c,ci){
+  ensurePW(c); ensureLines(c);
+  const opt=(arr,sel)=>arr.map(v=>`<option ${v===sel?'selected':''}>${v}</option>`).join('');
+
+  // --- selectores de tuberías (hasta 2) ---
+  const pipeBlocks=c.pipes.map((p,pi)=>`
+    <div class="spec role-tub">
+      <span class="spec-lbl">Tub ${pi+1}</span>
+      <select class="sel-mat" data-c="${c.id}" data-pw="pipe" data-idx="${pi}" data-f="mat">${opt(PIPE_MATS,p.mat)}</select>
+      <select class="sel-dia" data-c="${c.id}" data-pw="pipe" data-idx="${pi}" data-f="dia">${opt(PIPE_DIAS,p.dia)}</select>
+      ${c.pipes.length>1?`<button class="pw-del" data-c="${c.id}" data-pw="pipe" data-idx="${pi}" title="Quitar tubería">✕</button>`:''}
+    </div>`).join('');
+  const addPipeBtn = c.pipes.length<MAX_PIPES
+    ? `<button class="pw-add" data-c="${c.id}" data-pwadd="pipe" title="Agregar tubería">＋ tubería</button>` : '';
+
+  // --- selectores de cables fijos: FASE, NEUTRO, TIERRA (material + calibre + #cond independientes) ---
+  const wireBlocks=c.wires.map((w,wi)=>{
+    const roleCls = w.role==='FASE'?'role-fase':w.role==='NEUTRO'?'role-neutro':w.role==='TIERRA'?'role-tierra':'';
+    return `
+    <div class="spec ${roleCls}">
+      <span class="spec-lbl rolelbl">${esc(w.role||('Cable '+(wi+1)))}</span>
+      <select class="sel-mat" data-c="${c.id}" data-pw="wire" data-idx="${wi}" data-f="mat">${opt(WIRE_MATS,w.mat)}</select>
+      <select class="sel-dia" data-c="${c.id}" data-pw="wire" data-idx="${wi}" data-f="dia">${opt(WIRE_DIAS,w.dia)}</select>
+      <span class="spec-cond"><span class="spec-lbl">#C</span>
+        <input class="cond-in" data-c="${c.id}" data-pw="wire" data-idx="${wi}" data-f="cnt" value="${w.cnt}" title="Nº conductores de este cable"></span>
+    </div>`;}).join('');
+  const addWireBtn = '';
+  const totalCondBlock = '';
+
+  const horizRows=c.horiz.map((tr,i)=>tramoRow(c,tr,i,'horiz')).join('');
+  const montRows=montRowsHTML(c);
+  const fixedRows=c.fixed.map((f,i)=>f.hidden?'':fixedRowHTML(c,f,i)).join('');
+
+  // columnas dinámicas de la tabla — cables AGRUPADOS por material+calibre
+  const oneCable = false;            // ahora siempre 3 cables (FASE/NEUTRO/TIERRA)
+  const showCond = condColShown(c);
+  const condTh = showCond ? `<th class="n">#Cond</th>` : '';
+  const cols = wireCols(c);
+  const pipeThs=c.pipes.map((p,pi)=>`<th class="n">Tub ${pi+1}<br><span class="th-sub">${esc(p.dia+' '+p.mat)}</span></th>`).join('');
+  const wireThs=cols.map(col=>`<th class="n">${esc(col.dia+' '+col.mat)}<br><span class="th-sub">${esc(col.roles.join('+'))} · ${col.cnt}c</span></th>`).join('');
+  const ncols = 3 + (showCond?1:0) + c.pipes.length + cols.length;
+  const m=circMetrics(c);
+  const wireSum=fmt(m.wireLen.reduce((a,b)=>a+b,0));
+
+  // barra de montantes (cajas por tipo) — filtradas según el tipo de circuito
+  const visibles=tiposVisibles(c.tipoCirc||'mixto');
+  const qtyBar = curTipos().filter(tp=>!visibles || visibles.includes(tp.key)).map(tp=>{
+    if(tp.key==='tablero'){
+      const hhDef=(tp.alturas&&tp.alturas[0]!=null)?tp.alturas[0]:1.80;
+      const hh=(c.tableroH!=null && c.tableroH!=='')?(+c.tableroH||0):hhDef;
+      return `<div class="qb-box">
+        <div class="qb-box-h"><span class="qb-nm">${esc(tp.nombre)}</span></div>
+        <div class="qb-line">
+          <span class="qb-tab-u">H:</span>
+          <input class="qb-tab-h" data-c="${c.id}" value="${fmtH(hh)}" title="Altura del montante de tablero (base, sin adicional) — editable">
+          <span class="qb-tab-u">m · 1 und (fijo)</span>
+        </div>
+      </div>`;
+    }
+    const altOpts=(hi,tp)=>(tp.alturas||[]).map((a,j)=>{
+      const e=altEntry(tp,j);
+      const txt = (typeof a==='object') ? e.clase : `${fmtH(e.h)}m`;
+      return `<option value="${j}" ${j===hi?'selected':''}>${txt}</option>`;
+    }).join('');
+    const lines=c.montLines
+      .map((ln,gi)=>({ln,gi}))
+      .filter(x=>x.ln.tipoKey===tp.key)
+      .map(({ln,gi})=>{
+        const v=(ln.veces==null?VECES_DEF:+ln.veces);
+        const vecesField = tp.veces
+          ? `<button class="qb-dbl ${v>=2?'on':''}" data-c="${c.id}" data-line="${gi}" title="${v>=2?'Sube y baja (↑↓) — recorrido de ida y vuelta':'Solo sube (↑) — un solo recorrido'} · clic para cambiar"><span class="vflecha">${v>=2?'↑↓':'↑'}</span></button>`
+          : '';
+        return `<div class="qb-line" data-line="${gi}">
+          <select class="qb-sel" data-c="${c.id}" data-line="${gi}" title="Montante">${altOpts(+ln.hi||0, tp)}</select>
+          ${vecesField}
+          <input class="qb-cant" data-c="${c.id}" data-line="${gi}" value="${ln.und||''}" placeholder="0" title="Cantidad (und)">
+          <span class="qb-x" data-c="${c.id}" data-linedel="${gi}" title="Quitar">✕</span>
+        </div>`;
+      }).join('');
+    return `<div class="qb-box">
+      <div class="qb-box-h"><span class="qb-nm">${esc(tp.nombre)}</span>
+        <button class="qb-add" data-c="${c.id}" data-addtipo="${tp.key}" title="Agregar otra altura">＋</button></div>
+      ${lines||'<div class="qb-empty">— sin montantes —</div>'}
+    </div>`;
+  }).join('');
+
+  return `<div class="circ" data-cid="${c.id}">
+    <div class="circ-head">
+      <input class="circ-tag" data-c="${c.id}" data-f="tag" value="${esc(c.tag)}">
+      <select class="circ-tipo" data-c="${c.id}" data-f="tipoCirc" title="Tipo de circuito (derivado a…)">
+        ${CIRC_TIPOS.map(x=>`<option value="${x.key}" ${ (c.tipoCirc||'mixto')===x.key?'selected':''}>${x.label}</option>`).join('')}
+      </select>
+      <select class="circ-rec" data-c="${c.id}" data-f="recorrido" title="Recorrido del circuito">
+        <option value="piso" ${ (c.recorrido||'piso')==='piso'?'selected':''}>por PISO</option>
+        <option value="techo" ${ (c.recorrido||'piso')==='techo'?'selected':''}>por TECHO</option>
+      </select>
+      <input class="desc" data-c="${c.id}" data-f="desc" placeholder="Descripción del circuito (cable)…" value="${esc(c.desc)}">
+      <span class="circ-sum" title="Cable del primer conductor">Σ cable: ${wireSum||'0'} m</span>
+      <button class="circ-del" data-delc="${c.id}" title="Eliminar circuito">✕</button>
+    </div>
+    <div class="pw-bar">
+      <div class="pw-group">${pipeBlocks}${addPipeBtn}</div>
+      <div class="pw-group">${wireBlocks}${addWireBtn}${totalCondBlock}</div>
+      <div class="spec spec-cond" title="Altura piso-techo de este circuito (por defecto la del tablero)">
+        <span class="spec-lbl">Alt PT</span>
+        <input class="cond-in altpt-in" data-c="${c.id}" data-f="altPT" value="${c.altPT!=null&&c.altPT!==''?c.altPT:tabAltPT(c)}">
+      </div>
+    </div>
+    <div class="qty-bar">
+      <div class="qb-title">Montantes de este circuito — elige altura y cantidad, usa ＋ para agregar más</div>
+      <div class="qb-boxes">${qtyBar}</div>
+    </div>
+    <table class="tr">
+      <thead><tr>
+        <th>Descripción del tramo</th>
+        <th class="n">Und</th>
+        ${condTh}
+        <th class="n">Altura / Long</th>
+        ${pipeThs}
+        ${wireThs}
+      </tr></thead>
+      <tbody>
+        <tr class="grp-row"><td colspan="${ncols}">Proyección Horizontal</td></tr>
+        ${horizRows}
+        <tr class="addrow"><td colspan="${ncols}">
+          <div class="addrow-h">
+            <button class="mini addrow-btn" data-add="${c.id}" data-grp="horiz">＋ Tramo horizontal</button>
+            <span class="gen-group">
+              <span class="gen-lbl">Generar</span>
+              <input type="number" min="1" value="5" data-auto="${c.id}" class="gen-input">
+              <button class="mini addrow-btn" data-genh="${c.id}">tramos horiz.</button>
+            </span>
+            <label class="sel-all" title="Seleccionar / deseleccionar todos los tramos horizontales"><input type="checkbox" data-selall="${c.id}"> todos (horiz.)</label>
+            <span class="paste-tip" title="Copia una columna de longitudes en Excel (Ctrl+C) y pega (Ctrl+V) sobre una celda de Longitud. Si faltan filas, se crean solas.">📋 pega longitudes desde Excel</span>
+          </div>
+        </td></tr>
+        <tr class="grp-row"><td colspan="${ncols}">Montantes — indica cuántas unidades hay de cada altura</td></tr>
+        ${montRows}
+        <tr class="addrow"><td colspan="${ncols}"><div class="addrow-h">
+          <button class="mini addrow-btn" data-addmont="${c.id}">＋ Agregar montante (longitud manual)</button>
+          <label class="sel-all" title="Seleccionar / deseleccionar todos los montantes"><input type="checkbox" data-selallm="${c.id}"> todos (mont.)</label>
+          ${c.hideTab?`<button class="mini restore-btn" data-restmont="${c.id}" title="Vuelve a mostrar el montante de tablero">↺ Restaurar tablero</button>`:''}
+        </div></td></tr>
+        <tr class="grp-row"><td colspan="${ncols}">Conexiones</td></tr>
+        ${fixedRows}
+        ${c.hideConex?'':salidasRowHTML(c)}
+        ${conexExtraRowsHTML(c)}
+        <tr class="addrow"><td colspan="${ncols}"><div class="addrow-h">
+          <button class="mini addrow-btn" data-addconex="${c.id}">＋ Agregar conexión (longitud manual)</button>
+          <label class="sel-all" title="Seleccionar / deseleccionar todas las conexiones"><input type="checkbox" data-selallx="${c.id}"> todos (conex.)</label>
+          ${(c.hideConex||c.fixed.some(f=>f.hidden))?`<button class="mini restore-btn" data-restconex="${c.id}" title="Vuelve a mostrar las filas de conexión ocultas">↺ Restaurar fijas</button>`:''}
+        </div></td></tr>
+        <tr class="addrow"><td colspan="${ncols}"><div class="addrow-h del-all-row">
+          <label class="sel-all" title="Marca/desmarca TODAS las filas del circuito"><input type="checkbox" data-selallall="${c.id}"> seleccionar todo el circuito</label>
+          <button class="mini del-sel" data-delselall="${c.id}" title="Borra u oculta todas las filas marcadas (horizontales, montantes y conexiones)">🗑 Borrar seleccionados</button>
+        </div></td></tr>
+      </tbody>
+    </table>
+  </div>`;
+}
+
+// celdas de tubería de una fila: el valor va SOLO en la tubería asignada;
+// en las demás aparece un botón "usar" para mover la fila a esa tubería.
+function pipeCellsHTML(c, rowKey, storedPipe, lenVal){
+  const ass=rowPipe(c,storedPipe);
+  if(c.pipes.length<=1) return c.pipes.map(()=>`<td class="n long-cell long-val">${fmt(lenVal)}</td>`).join('');
+  return c.pipes.map((p,pi)=>{
+    if(pi===ass) return `<td class="n long-cell long-val pipe-on">${fmt(lenVal)}</td>`;
+    return `<td class="n long-cell pipe-off"><button class="pipe-pick" data-c="${c.id}" data-piperow="${rowKey}" data-pipe="${pi}" title="Usar Tub ${pi+1} en esta fila">usar</button></td>`;
+  }).join('');
+}
+// fila de tramo horizontal con columnas dinámicas (tubería por pipe, cable por wire)
+function tramoRow(c,tr,i,grp){
+  const oneCable=c.wires.length===1;
+  const w0=+(c.wires[0]?.cnt)||0;
+  const u=(tr.und==null?1:+tr.und)||0, L=+tr.len||0;
+  const tub=L*u;
+  const ovH=rowOv(c,tr.cond), totH=circCondTotal(c);
+  const rowCnt=(tr.cnt!=null?+tr.cnt:w0)||0;
+  const pipeTds=pipeCellsHTML(c,'h'+i,tr.pipe,tub);
+  const wireTds=wireCols(c).map(col=>`<td class="n cable-cell">${fmt(u*L*condEff(ovH,col,totH))}</td>`).join('');
+  const condTd = condColShown(c) ? `<td class="n"><input class="cnt cond-cell condrow-cell" data-c="${c.id}" data-f="condrow" data-condrow="h${i}" value="${condShow(c,ovH)}" title="Nº de conductores de esta fila (editable, independiente)"></td>` : '';
+  return `<tr>
+    <td><div class="desc-pick"><input type="checkbox" class="htr-chk" data-c="${c.id}" data-i="${i}" title="Seleccionar tramo"><input data-c="${c.id}" data-grp="${grp}" data-i="${i}" data-f="desc" value="${esc(tr.desc)}" placeholder="Describe el tramo…"></div></td>
+    <td class="n"><input class="cnt" data-c="${c.id}" data-grp="${grp}" data-i="${i}" data-f="und" value="${tr.und==null?1:tr.und}" title="Unidades"></td>
+    ${condTd}
+    <td class="n"><input class="len" data-c="${c.id}" data-grp="${grp}" data-i="${i}" data-f="len" value="${tr.len}" title="Longitud unitaria"></td>
+    ${pipeTds}${wireTds}
+  </tr>`;
+}
+// fila complementaria (cable a tierra, peinado): solo cable en el PRIMER cable
+function fixedRowHTML(c,f,i){
+  const oneCable=c.wires.length===1;
+  const pipeTds=c.pipes.map(()=>`<td class="n long-cell">—</td>`).join('');
+  const baseF=1*(+f.len||0);
+  const totF=circCondTotal(c);
+  let wireTds, condTd;
+  if(f.kind==='tierra'){
+    const tc=tierraCnt(c);
+    wireTds=wireCols(c).map(col=>`<td class="n cable-cell">${fmt(col.roles.includes('TIERRA')?baseF*tc:0)}</td>`).join('');
+    condTd=condColShown(c) ? `<td class="n"><span class="qty-ro" title="Igual al nº de conductores del cable de TIERRA">${tc}</span></td>` : '';
+  } else {
+    const ovF=rowOv(c,f.cond);
+    wireTds=wireCols(c).map(col=>`<td class="n cable-cell">${fmt(baseF*condEff(ovF,col,totF))}</td>`).join('');
+    condTd=condColShown(c) ? `<td class="n"><input class="cnt cond-cell condrow-cell" data-c="${c.id}" data-f="condrow" data-condrow="cf${i}" value="${condShow(c,ovF)}" title="Nº de conductores de esta fila (editable, independiente)"></td>` : '';
+  }
+  const lenCell = `<td class="n"><input class="len" data-c="${c.id}" data-fix="${i}" data-f="len" value="${f.len}" title="Longitud"></td>`;
+  return `<tr>
+    <td><div class="desc-pick"><input type="checkbox" class="cnx-chk" data-ck="fixed" data-i="${i}" title="Seleccionar (ocultar) fila"><span class="mont-label">${esc(f.desc)}</span></div></td>
+    <td class="n"><span class="qty-ro">1</span></td>
+    ${condTd}
+    ${lenCell}
+    ${pipeTds}${wireTds}
+  </tr>`;
+}
+// ===== Conexiones (antes SALIDAS) =====
+// tipos de montante (dispositivos) presentes en el circuito, en orden de aparición
+function circConexTipos(c){
+  ensureLines(c);
+  const seen=[], names=[];
+  c.montLines.forEach(ln=>{ if(ln.tipoKey!=='tablero' && !seen.includes(ln.tipoKey)){ seen.push(ln.tipoKey); names.push(getTipo(ln.tipoKey).nombre); } });
+  return names;
+}
+// unidades totales de conexiones = suma de und de todos los montantes (dispositivos) del circuito
+function circConexUnd(c){
+  ensureLines(c);
+  return c.montLines.reduce((s,ln)=>s+(+ln.und||0),0);
+}
+// etiqueta dinámica de la fila de conexiones
+function conexLabel(c){
+  const n=circConexTipos(c);
+  return n.length ? ('CONEXION DE APARATOS EN '+n.join(', ')) : 'CONEXION DE APARATOS';
+}
+function salidasRowHTML(c){
+  const oneCable=c.wires.length===1;
+  const und=circConexUnd(c);
+  const pipeTds=c.pipes.map(()=>`<td class="n long-cell">—</td>`).join('');
+  const baseS=und*(+c.salidas.len||0);
+  const ovS=rowOv(c,c.salidas.cond), totS=circCondTotal(c);
+  const wireTds=wireCols(c).map(col=>`<td class="n cable-cell">${fmt(baseS*condEff(ovS,col,totS))}</td>`).join('');
+  const condTd = condColShown(c) ? `<td class="n"><input class="cnt cond-cell condrow-cell" data-c="${c.id}" data-f="condrow" data-condrow="cauto" value="${condShow(c,ovS)}" title="Nº de conductores de esta fila (editable, independiente)"></td>` : '';
+  const lenCell = `<td class="n"><input class="len" data-c="${c.id}" data-f="sal_len" value="${c.salidas.len}"></td>`;
+  return `<tr>
+    <td><div class="desc-pick"><input type="checkbox" class="cnx-chk" data-ck="auto" title="Seleccionar (ocultar) fila automática de conexiones"><span class="mont-label">${esc(conexLabel(c))}</span></div></td>
+    <td class="n"><span class="qty-ro" title="Suma de unidades de montantes del circuito">${und}</span></td>
+    ${condTd}
+    ${lenCell}
+    ${pipeTds}${wireTds}
+  </tr>`;
+}
+
+// filas de CONEXIONES manuales (editables: nombre, und, #cond, longitud) — solo cable
+function conexExtraRowsHTML(c){
+  ensureLines(c);
+  const oneCable=c.wires.length===1;
+  return (c.conexExtra||[]).map((x,i)=>{
+    const und=+x.und||0, cd=+x.cnt||0, L=+x.len||0;
+    const baseX=und*L;
+    const ovX=rowOv(c,x.cond), totX=circCondTotal(c);
+    const pipeTds=c.pipes.map(()=>`<td class="n long-cell">—</td>`).join('');
+    const wireTds=wireCols(c).map(col=>`<td class="n cable-cell">${fmt(baseX*condEff(ovX,col,totX))}</td>`).join('');
+    const condTd = condColShown(c) ? `<td class="n"><input class="cnt cond-cell condrow-cell" data-c="${c.id}" data-f="condrow" data-condrow="cx${i}" value="${condShow(c,ovX)}" title="Nº de conductores de esta fila (editable, independiente)"></td>` : '';
+    const lenCell = `<td class="n"><input class="len" data-c="${c.id}" data-grp="conexExtra" data-i="${i}" data-f="len" value="${x.len}" title="Longitud (m)"><span class="row-del" data-cxdel="${i}" data-c="${c.id}" style="margin-left:6px">✕</span></td>`;
+    return `<tr>
+      <td><div class="desc-pick"><input type="checkbox" class="cnx-chk" data-ck="extra" data-i="${i}" title="Seleccionar conexión"><input data-c="${c.id}" data-grp="conexExtra" data-i="${i}" data-f="desc" value="${esc(x.desc)}" placeholder="Nombre de la conexión…"></div></td>
+      <td class="n"><input class="cnt" data-c="${c.id}" data-grp="conexExtra" data-i="${i}" data-f="und" value="${x.und}" title="Cantidad (und)"></td>
+      ${condTd}
+      ${lenCell}
+      ${pipeTds}${wireTds}
+    </tr>`;
+  }).join('');
+}
+
+function bindCirc(t,c,ci){
+  const root=document.querySelector(`.circ[data-cid="${c.id}"]`);
+  // re-render del circuito conservando el foco en el mismo campo
+  function refreshKeepFocus(){
+    const act=document.activeElement;
+    const sig = act && act.dataset ? JSON.stringify({g:act.dataset.grp,i:act.dataset.i,f:act.dataset.f,fix:act.dataset.fix,pw:act.dataset.pw,idx:act.dataset.idx,line:act.dataset.line,alt:act.dataset.altrow,mc:act.dataset.montcnt,cd:act.dataset.condrow}) : null;
+    const selStart = act && act.selectionStart;
+    refreshCirc(t,c); renderTotbar();
+    if(sig){
+      const r2=document.querySelector(`.circ[data-cid="${c.id}"]`);
+      const again=[...r2.querySelectorAll('input,select')].find(el=>el.dataset && JSON.stringify({g:el.dataset.grp,i:el.dataset.i,f:el.dataset.f,fix:el.dataset.fix,pw:el.dataset.pw,idx:el.dataset.idx,line:el.dataset.line,alt:el.dataset.altrow,mc:el.dataset.montcnt,cd:el.dataset.condrow})===sig);
+      if(again){ again.focus(); try{ again.selectionStart=again.selectionEnd=selStart; }catch(e){} }
+    }
+  }
+  // head fields
+  root.querySelectorAll('[data-f]').forEach(inp=>{
+    const f=inp.dataset.f;
+    if(f==='tag' && !inp.dataset.grp) inp.oninput=e=>{
+      c.tag=e.target.value;
+      const nd=tendidoDesc(c.tag);
+      c.horiz.forEach((tr,i)=>{
+        if(esTendidoDefault(tr.desc)){
+          tr.desc=nd;
+          const di=root.querySelector(`input[data-grp="horiz"][data-i="${i}"][data-f="desc"]`);
+          if(di && document.activeElement!==di) di.value=nd;
+        }
+      });
+    };
+    else if(f==='desc' && inp.dataset.ex===undefined && inp.dataset.grp===undefined && inp.dataset.fix===undefined) inp.oninput=e=>{c.desc=e.target.value;};
+    // tipo de circuito (derivado a…)
+    if(f==='tipoCirc'){
+      inp.onchange=e=>{
+        c.tipoCirc=e.target.value;
+        c.recorrido=recorridoDefault(c.tipoCirc);   // luminaria→techo, otros→piso
+        const vis=tiposVisibles(c.tipoCirc);
+        if(vis){ c.montLines=(c.montLines||[]).filter(ln=>vis.includes(ln.tipoKey)); }
+        refreshCirc(t,c); renderTotbar();
+      };
+    }
+    // recorrido del circuito (piso/techo)
+    if(f==='recorrido'){
+      inp.onchange=e=>{ c.recorrido=e.target.value; refreshCirc(t,c); renderTotbar(); };
+    }
+    // altura piso-techo del circuito (override propio)
+    if(f==='altPT'){
+      inp.oninput=e=>{ c.altPT=parseFloat(e.target.value)||0; refreshKeepFocus(); };
+    }
+    // selectores/inputs de tubería y cable
+    if(inp.dataset.pw){
+      const pw=inp.dataset.pw, idx=+inp.dataset.idx;
+      const arr = pw==='pipe'?c.pipes:c.wires;
+      if(f==='mat'||f==='dia'){ inp.onchange=e=>{ arr[idx][f]=e.target.value; refreshCirc(t,c); renderTotbar(); }; }
+      if(f==='cnt'){ inp.oninput=e=>{ arr[idx].cnt=parseFloat(e.target.value)||0; refreshKeepFocus(); }; }
+    }
+    // total de conductores (cuando los 3 cables son iguales): ajusta la FASE manteniendo neutro y tierra
+    if(f==='wtotal'){
+      inp.oninput=e=>{
+        const T=parseFloat(e.target.value)||0;
+        const n=+(c.wires[1]?.cnt)||0, ti=+(c.wires[2]?.cnt)||0;
+        if(c.wires[0]) c.wires[0].cnt=Math.max(0, T - n - ti);
+        refreshKeepFocus();
+      };
+    }
+    // #Cond por fila (independiente): edita solo el conductor de esta fila
+    if(f==='condrow'){
+      inp.oninput=e=>{
+        const raw=e.target.value;
+        const v = (raw===''?null : Math.max(0, parseFloat(raw)||0));
+        const key=inp.dataset.condrow||'';
+        let mm;
+        if(key==='cauto'){ c.salidas.cond=v; }
+        else if(key==='mtab'){ c.tabCond=v; }
+        else if((mm=key.match(/^h(\d+)$/))){ if(c.horiz[+mm[1]]) c.horiz[+mm[1]].cond=v; }
+        else if((mm=key.match(/^cf(\d+)$/))){ if(c.fixed[+mm[1]]) c.fixed[+mm[1]].cond=v; }
+        else if((mm=key.match(/^cx(\d+)$/))){ if(c.conexExtra && c.conexExtra[+mm[1]]) c.conexExtra[+mm[1]].cond=v; }
+        else if((mm=key.match(/^mx(\d+)$/))){ if(c.montExtra && c.montExtra[+mm[1]]) c.montExtra[+mm[1]].cond=v; }
+        else if((mm=key.match(/^ml(\d+)$/))){ ensureLines(c); if(c.montLines[+mm[1]]) c.montLines[+mm[1]].cond=v; }
+        refreshKeepFocus();
+      };
+    }
+    // tramos horizontales
+    if(inp.dataset.grp==='horiz' && inp.dataset.i!==undefined){
+      const grp=inp.dataset.grp, idx=+inp.dataset.i;
+      inp.oninput=e=>{
+        let v=e.target.value;
+        if(f==='cnt'||f==='len'||f==='und') v=parseFloat(v)||0;
+        c[grp][idx][f]=v;
+        refreshKeepFocus();
+      };
+    }
+    // fixed rows
+    if(inp.dataset.fix!==undefined){
+      const fi=+inp.dataset.fix;
+      inp.oninput=e=>{c.fixed[fi][f]=parseFloat(e.target.value)||0; refreshKeepFocus();};
+    }
+    // salidas
+    if(f==='sal_cnt') inp.oninput=e=>{c.salidas.cnt=parseFloat(e.target.value)||0;refreshKeepFocus();};
+    if(f==='sal_len') inp.oninput=e=>{c.salidas.len=parseFloat(e.target.value)||0;refreshKeepFocus();};
+  });
+  // agregar / quitar tubería o cable
+  root.querySelectorAll('[data-pwadd]').forEach(b=>{
+    b.onclick=()=>{
+      if(b.dataset.pwadd==='pipe' && c.pipes.length<MAX_PIPES){
+        const last=c.pipes.at(-1); c.pipes.push({mat:last?.mat||DEF_PIPE_MAT, dia:last?.dia||DEF_PIPE_DIA});
+      } else if(b.dataset.pwadd==='wire' && c.wires.length<MAX_WIRES){
+        const last=c.wires.at(-1); c.wires.push({mat:last?.mat||DEF_WIRE_MAT, dia:last?.dia||DEF_WIRE_DIA, cnt:last?.cnt||3});
+      }
+      refreshCirc(t,c); renderTotbar();
+    };
+  });
+  root.querySelectorAll('button.pw-del[data-pw]').forEach(b=>{
+    b.onclick=()=>{
+      const arr=b.dataset.pw==='pipe'?c.pipes:c.wires;
+      if(arr.length>1) arr.splice(+b.dataset.idx,1);
+      refreshCirc(t,c); renderTotbar();
+    };
+  });
+  // ===== montantes: líneas por tipo =====
+  // agregar línea de un tipo
+  root.querySelectorAll('[data-addtipo]').forEach(b=>{
+    b.onclick=()=>{
+      ensureLines(c);
+      const tk=b.dataset.addtipo;
+      const ln={tipoKey:tk, hi:0, und:1};
+      ln.h=lineAltura(tk,0);
+      if(tipoTieneVeces(tk)) ln.veces=VECES_DEF;
+      c.montLines.push(ln);
+      refreshCirc(t,c); renderTotbar();
+    };
+  });
+  // cambiar selección del desplegable (altura/clase del catálogo): adopta esa altura como override
+  root.querySelectorAll('select.qb-sel[data-line]').forEach(sel=>{
+    sel.onchange=e=>{
+      const ln=c.montLines[+sel.dataset.line];
+      ln.hi=parseInt(e.target.value)||0;
+      ln.h=lineAltura(ln.tipoKey,ln.hi);   // toma la altura del catálogo de esa opción
+      refreshCirc(t,c); renderTotbar();
+    };
+  });
+  // editar altura en la TABLA (columna Altura)
+  root.querySelectorAll('input.alt-edit[data-altrow]').forEach(inp=>{
+    inp.oninput=e=>{
+      const ref=inp.dataset.altrow;
+      const add=curMontAdd();
+      const eff=parseFloat(e.target.value)||0;
+      const base=+(eff-add).toFixed(4);
+      if(ref==='tab'){ c.tableroH=base; }
+      else if(ref[0]==='L'){ const li=+ref.slice(1); if(c.montLines[li]) c.montLines[li].h=base; }
+      refreshKeepFocus();
+    };
+  });
+  // cambiar cantidad de una línea
+  root.querySelectorAll('input.qb-cant[data-line]').forEach(inp=>{
+    inp.oninput=e=>{ c.montLines[+inp.dataset.line].und=parseFloat(e.target.value)||0; refreshKeepFocus(); };
+  });
+  // altura del montante de TABLERO (editable desde la caja; base sin adicional) — actualización puntual
+  root.querySelectorAll('input.qb-tab-h[data-c]').forEach(inp=>{
+    inp.oninput=e=>{
+      c.tableroH=parseFloat(e.target.value)||0;
+      const tabInput=root.querySelector('input.alt-edit[data-altrow="tab"]');
+      const m=circMontantes(c).find(x=>x.fixed);
+      if(tabInput && m){
+        const tr=tabInput.closest('tr');
+        tabInput.value=fmtH(m.alt);
+        const oneCable=c.wires.length===1, w0=+(c.wires[0]?.cnt)||0;
+        const rowCnt=(m.cnt!=null?+m.cnt:w0)||0;
+        tr.querySelectorAll('.long-val').forEach(td=>td.textContent=fmt(m.long));
+        const cc=tr.querySelectorAll('.cable-cell');
+        const ovTab=rowOv(c,m.cond), totTab=circCondTotal(c);
+        wireCols(c).forEach((col,ci)=>{ if(cc[ci]) cc[ci].textContent=fmt(m.long*condEff(ovTab,col,totTab)); });
+      }
+      const {wire}=circTotals(c);
+      const sumEl=root.querySelector('.circ-sum'); if(sumEl) sumEl.textContent='Σ cable: '+(fmt(wire)||'0')+' m';
+      updateHeadTotal(t); renderTotbar();
+    };
+  });
+  // edición en vivo de filas manuales (montExtra / conexExtra) — sin re-render, decimales fluidos
+  root.querySelectorAll('[data-grp="montExtra"],[data-grp="conexExtra"]').forEach(inp=>{
+    const kind=inp.dataset.grp, idx=+inp.dataset.i, f=inp.dataset.f;
+    inp.oninput=e=>{
+      let v=e.target.value;
+      if(f==='cnt'||f==='len'||f==='und') v=parseFloat(v)||0;
+      c[kind][idx][f]=v;
+      liveExtraRow(t,c,kind,idx,root);
+    };
+  });
+  // agregar / eliminar fila de MONTANTE manual
+  root.querySelectorAll('[data-addmont]').forEach(b=>{
+    b.onclick=()=>{ ensureLines(c); c.montExtra.push({id:uid(),desc:'',und:1,cnt:circCnt(c),len:0}); refreshCirc(t,c); renderTotbar(); };
+  });
+  root.querySelectorAll('[data-mxdel]').forEach(d=>{
+    d.onclick=()=>{ ensureLines(c); c.montExtra.splice(+d.dataset.mxdel,1); refreshCirc(t,c); renderTotbar(); };
+  });
+  // agregar / eliminar fila de CONEXIÓN manual
+  root.querySelectorAll('[data-addconex]').forEach(b=>{
+    b.onclick=()=>{ ensureLines(c); c.conexExtra.push({id:uid(),desc:'',und:1,cnt:circCnt(c),len:0}); refreshCirc(t,c); renderTotbar(); };
+  });
+  root.querySelectorAll('[data-cxdel]').forEach(d=>{
+    d.onclick=()=>{ ensureLines(c); c.conexExtra.splice(+d.dataset.cxdel,1); refreshCirc(t,c); renderTotbar(); };
+  });
+  // montantes: seleccionar todos / borrar seleccionados (líneas de catálogo + manuales)
+  root.querySelectorAll('[data-selallm]').forEach(sa=>{
+    sa.onchange=()=>root.querySelectorAll('.mont-chk').forEach(ch=>{ ch.checked=sa.checked; });
+  });
+  root.querySelectorAll('[data-delselm]').forEach(b=>{
+    b.onclick=()=>{
+      ensureLines(c);
+      const chk=[...root.querySelectorAll('.mont-chk')].filter(ch=>ch.checked);
+      const lines=chk.filter(ch=>ch.dataset.mk==='line').map(ch=>+ch.dataset.i).sort((a,b)=>b-a);
+      const ex   =chk.filter(ch=>ch.dataset.mk==='extra').map(ch=>+ch.dataset.i).sort((a,b)=>b-a);
+      const tab  =chk.some(ch=>ch.dataset.mk==='tab');
+      if(!lines.length && !ex.length && !tab) return;
+      lines.forEach(i=>c.montLines.splice(i,1));
+      ex.forEach(i=>c.montExtra.splice(i,1));
+      if(tab) c.hideTab=true;
+      refreshCirc(t,c); renderTotbar();
+    };
+  });
+  root.querySelectorAll('[data-restmont]').forEach(b=>{
+    b.onclick=()=>{ c.hideTab=false; refreshCirc(t,c); renderTotbar(); };
+  });
+  // conexiones manuales: seleccionar todos / borrar seleccionados
+  root.querySelectorAll('[data-selallx]').forEach(sa=>{
+    sa.onchange=()=>root.querySelectorAll('.cnx-chk').forEach(ch=>{ ch.checked=sa.checked; });
+  });
+  root.querySelectorAll('[data-delselx]').forEach(b=>{
+    b.onclick=()=>{
+      ensureLines(c);
+      const chk=[...root.querySelectorAll('.cnx-chk')].filter(ch=>ch.checked);
+      const ex   =chk.filter(ch=>ch.dataset.ck==='extra').map(ch=>+ch.dataset.i).sort((a,b)=>b-a);
+      const fixed=chk.filter(ch=>ch.dataset.ck==='fixed').map(ch=>+ch.dataset.i);
+      const auto =chk.some(ch=>ch.dataset.ck==='auto');
+      if(!ex.length && !fixed.length && !auto) return;
+      ex.forEach(i=>c.conexExtra.splice(i,1));
+      fixed.forEach(i=>{ if(c.fixed[i]) c.fixed[i].hidden=true; });
+      if(auto) c.hideConex=true;
+      refreshCirc(t,c); renderTotbar();
+    };
+  });
+  root.querySelectorAll('[data-restconex]').forEach(b=>{
+    b.onclick=()=>{ c.hideConex=false; c.fixed.forEach(f=>f.hidden=false); refreshCirc(t,c); renderTotbar(); };
+  });
+  // ÚNICO control global: seleccionar todo el circuito + borrar seleccionados (cualquier sección)
+  root.querySelectorAll('[data-selallall]').forEach(sa=>{
+    sa.onchange=()=>{ root.querySelectorAll('.htr-chk,.mont-chk,.cnx-chk').forEach(ch=>{ ch.checked=sa.checked; }); };
+  });
+  root.querySelectorAll('[data-delselall]').forEach(b=>{
+    b.onclick=()=>{
+      ensureLines(c);
+      const hidx =[...root.querySelectorAll('.htr-chk')].filter(ch=>ch.checked).map(ch=>+ch.dataset.i).sort((a,b)=>b-a);
+      const mchk =[...root.querySelectorAll('.mont-chk')].filter(ch=>ch.checked);
+      const mlines=mchk.filter(ch=>ch.dataset.mk==='line').map(ch=>+ch.dataset.i).sort((a,b)=>b-a);
+      const mex   =mchk.filter(ch=>ch.dataset.mk==='extra').map(ch=>+ch.dataset.i).sort((a,b)=>b-a);
+      const mtab  =mchk.some(ch=>ch.dataset.mk==='tab');
+      const xchk =[...root.querySelectorAll('.cnx-chk')].filter(ch=>ch.checked);
+      const cex   =xchk.filter(ch=>ch.dataset.ck==='extra').map(ch=>+ch.dataset.i).sort((a,b)=>b-a);
+      const cfixed=xchk.filter(ch=>ch.dataset.ck==='fixed').map(ch=>+ch.dataset.i);
+      const cauto =xchk.some(ch=>ch.dataset.ck==='auto');
+      if(!hidx.length && !mlines.length && !mex.length && !mtab && !cex.length && !cfixed.length && !cauto) return;
+      hidx.forEach(i=>c.horiz.splice(i,1));
+      if(c.horiz.length===0) c.horiz.push(tramo(tendidoDesc(c.tag),circCnt(c),0));
+      mlines.forEach(i=>c.montLines.splice(i,1));
+      mex.forEach(i=>c.montExtra.splice(i,1));
+      if(mtab) c.hideTab=true;
+      cex.forEach(i=>c.conexExtra.splice(i,1));
+      cfixed.forEach(i=>{ if(c.fixed[i]) c.fixed[i].hidden=true; });
+      if(cauto) c.hideConex=true;
+      refreshCirc(t,c); renderTotbar();
+    };
+  });
+  // #cond por fila de montante (cuando hay 1 cable)
+  root.querySelectorAll('input.cond-cell[data-montcnt]').forEach(inp=>{
+    inp.oninput=e=>{ c.montLines[+inp.dataset.montcnt].cnt=parseFloat(e.target.value)||0; refreshKeepFocus(); };
+  });
+  // toggle DOBLE/SIMPLE (veces 2 / 1)
+  root.querySelectorAll('button.qb-dbl[data-line]').forEach(b=>{
+    b.onclick=()=>{
+      const ln=c.montLines[+b.dataset.line];
+      const cur=(ln.veces==null?VECES_DEF:+ln.veces);
+      ln.veces = (cur>=2?1:2);
+      refreshCirc(t,c); renderTotbar();
+    };
+  });
+  // eliminar línea
+  root.querySelectorAll('[data-linedel]').forEach(d=>{
+    d.onclick=()=>{ c.montLines.splice(+d.dataset.linedel,1); refreshCirc(t,c); renderTotbar(); };
+  });
+  // delete circuit
+  root.querySelector('[data-delc]').onclick=()=>{
+    if(confirm('¿Eliminar circuito '+(c.tag||'')+'?')){
+      t.circuitos=t.circuitos.filter(x=>x.id!==c.id);
+      renderMain();renderTree();renderTotbar();}
+  };
+  // add tramo horizontal
+  root.querySelectorAll('[data-add]').forEach(b=>{
+    b.onclick=()=>{ c.horiz.push(tramo(tendidoDesc(c.tag),circCnt(c),0)); refreshCirc(t,c);renderTotbar(); };
+  });
+  // seleccionar / deseleccionar todos los tramos
+  root.querySelectorAll('[data-selall]').forEach(sa=>{
+    sa.onchange=()=>{ root.querySelectorAll('.htr-chk').forEach(ch=>{ ch.checked=sa.checked; }); };
+  });
+  // borrar los tramos seleccionados (con check)
+  root.querySelectorAll('[data-delsel]').forEach(b=>{
+    b.onclick=()=>{
+      const idx=[...root.querySelectorAll('.htr-chk')].filter(ch=>ch.checked).map(ch=>+ch.dataset.i).sort((a,b)=>b-a);
+      if(!idx.length) return;
+      idx.forEach(i=>c.horiz.splice(i,1));
+      if(c.horiz.length===0) c.horiz.push(tramo(tendidoDesc(c.tag),circCnt(c),0));
+      refreshCirc(t,c); renderTotbar();
+    };
+  });
+  // delete tramo horizontal
+  root.querySelectorAll('.row-del[data-del]').forEach(d=>{
+    d.onclick=()=>{ const grp=d.dataset.grp,i=+d.dataset.i; c[grp].splice(i,1); refreshCirc(t,c);renderTotbar(); };
+  });
+  // asignar tubería a una fila ("usar" en la columna de otra tubería)
+  root.querySelectorAll('.pipe-pick[data-piperow]').forEach(b=>{
+    b.onclick=()=>{
+      const key=b.dataset.piperow||''; const pi=parseInt(b.dataset.pipe)||0; let mm;
+      if(key==='mtab'){ c.tabPipe=pi; }
+      else if((mm=key.match(/^h(\d+)$/))){ if(c.horiz[+mm[1]]) c.horiz[+mm[1]].pipe=pi; }
+      else if((mm=key.match(/^ml(\d+)$/))){ ensureLines(c); if(c.montLines[+mm[1]]) c.montLines[+mm[1]].pipe=pi; }
+      else if((mm=key.match(/^mx(\d+)$/))){ if(c.montExtra && c.montExtra[+mm[1]]) c.montExtra[+mm[1]].pipe=pi; }
+      refreshCirc(t,c); renderTotbar();
+    };
+  });
+  // generate horizontal rows
+  root.querySelector('[data-genh]').onclick=()=>{
+    const n=parseInt(root.querySelector('[data-auto]').value)||0;
+    for(let k=0;k<n;k++) c.horiz.push(tramo(tendidoDesc(c.tag),circCnt(c),0));
+    refreshCirc(t,c);renderTotbar();
+  };
+}
+
+// re-render just one circuit (structure changed)
+function refreshCirc(t,c){
+  const ci=t.circuitos.indexOf(c);
+  const root=document.querySelector(`.circ[data-cid="${c.id}"]`);
+  const tmp=document.createElement('div'); tmp.innerHTML=circHTML(c,ci);
+  root.replaceWith(tmp.firstElementChild);
+  bindCirc(t,c,ci);
+  updateHeadTotal(t);
+}
+// actualiza solo las filas de montante de la tabla (cuando cambia una cantidad en las cajas)
+function liveMontTable(t,c){
+  const root=document.querySelector(`.circ[data-cid="${c.id}"]`);
+  if(!root)return;
+  const tbody=root.querySelector('table.tr tbody');
+  if(tbody){
+    // localizar el grupo "Montantes": reconstruir todas sus filas
+    const rows=[...tbody.querySelectorAll('tr')];
+    // eliminar filas de montante actuales (entre el grp Montantes y el grp Complementarios)
+    let inMont=false;
+    rows.forEach(tr=>{
+      const grp=tr.querySelector('td[colspan]');
+      if(grp){ const txt=grp.textContent||''; inMont = txt.startsWith('Montantes'); if(txt.startsWith('Conexiones')) inMont=false; return; }
+      if(inMont) tr.remove();
+    });
+    // insertar nuevas filas después del encabezado "Montantes"
+    const montHdr=[...tbody.querySelectorAll('tr')].find(tr=>{const g=tr.querySelector('td[colspan]');return g&&(g.textContent||'').startsWith('Montantes');});
+    if(montHdr){
+      const html=montRowsHTML(c);
+      montHdr.insertAdjacentHTML('afterend', html);
+      bindAltEdit(t,c,root);  // re-enlazar inputs de altura editables
+    }
+  }
+  // sumas
+  const {wire}=circTotals(c);
+  root.querySelector('.circ-sum').textContent='Σ cable: '+(fmt(wire)||'0')+' m';
+  updateHeadTotal(t);
+  renderTotbar();
+}
+// enlaza los inputs de altura editables de la tabla de montantes
+function bindAltEdit(t,c,root){
+  root=root||document.querySelector(`.circ[data-cid="${c.id}"]`);
+  if(!root)return;
+  root.querySelectorAll('input.alt-edit[data-altrow]').forEach(inp=>{
+    inp.oninput=e=>{
+      const ref=inp.dataset.altrow;
+      const add=curMontAdd();
+      const eff=parseFloat(e.target.value)||0;     // valor mostrado (ya con adicional)
+      const base=+(eff-add).toFixed(4);            // guardamos la altura base
+      if(ref==='tab'){ c.tableroH=base; }
+      else if(ref[0]==='L'){ const li=+ref.slice(1); if(c.montLines[li]) c.montLines[li].h=base; }
+      const tr=inp.closest('tr');
+      let und=1, veces=1, ovStored=null;
+      if(ref==='tab'){ ovStored=(c.tabCond!=null?+c.tabCond:null); }
+      else if(ref[0]==='L'){ const li=+ref.slice(1); und=+(c.montLines[li]?.und)||0;
+        veces = tipoTieneVeces(c.montLines[li]?.tipoKey) ? (+(c.montLines[li]?.veces)||1) : 1;
+        ovStored=(c.montLines[li]?.cond!=null?+c.montLines[li].cond:null); }
+      const ov=rowOv(c,ovStored);
+      const long=+(eff*und*veces).toFixed(4);
+      const lc=tr.querySelectorAll('.long-val'); lc.forEach(td=>td.textContent=fmt(long));
+      const cc=tr.querySelectorAll('.cable-cell'); const tot=circCondTotal(c);
+      wireCols(c).forEach((col,ci)=>{ if(cc[ci]) cc[ci].textContent=fmt(long*condEff(ov,col,tot)); });
+      const {wire}=circTotals(c);
+      root.querySelector('.circ-sum').textContent='Σ cable: '+(fmt(wire)||'0')+' m';
+      updateHeadTotal(t); renderTotbar();
+    };
+  });
+}
+// HTML de las filas de montante (tablero + líneas + extras)
+function montRowsHTML(c){
+  const oneCable=c.wires.length===1;
+  const w0=+(c.wires[0]?.cnt)||0;
+  return circMontantes(c).map(m=>{
+    // fila de montante MANUAL (editable: nombre, und, #cond, altura/long)
+    if(m.extra!=null){
+      const ei=m.extra;
+      const rowCntX=(m.cnt!=null?+m.cnt:w0)||0;
+      const ovMX=rowOv(c,m.cond), totMX=circCondTotal(c);
+      const condTdX = condColShown(c) ? `<td class="n"><input class="cnt cond-cell condrow-cell" data-c="${c.id}" data-f="condrow" data-condrow="mx${ei}" value="${condShow(c,ovMX)}" title="Nº de conductores de esta fila (editable, independiente)"></td>` : '';
+      const pipeTdsX=pipeCellsHTML(c,'mx'+ei,m.pipe,m.long);
+      const wireTdsX=wireCols(c).map(col=>`<td class="n cable-cell">${fmt(m.long*condEff(ovMX,col,totMX))}</td>`).join('');
+      return `<tr>
+        <td><div class="desc-pick"><input type="checkbox" class="mont-chk" data-mk="extra" data-i="${ei}" title="Seleccionar montante"><input data-c="${c.id}" data-grp="montExtra" data-i="${ei}" data-f="desc" value="${esc(m.desc)}" placeholder="Nombre del montante…"></div></td>
+        <td class="n"><input class="cnt" data-c="${c.id}" data-grp="montExtra" data-i="${ei}" data-f="und" value="${m.und}" title="Cantidad (und)"></td>
+        ${condTdX}
+        <td class="n alt-cell"><input class="len" data-c="${c.id}" data-grp="montExtra" data-i="${ei}" data-f="len" value="${m.base}" title="Altura / Long (m) — exacta"><span class="row-del" data-mxdel="${ei}" data-c="${c.id}" style="margin-left:6px">✕</span></td>
+        ${pipeTdsX}${wireTdsX}
+      </tr>`;
+    }
+    const qtyCell = m.fixed
+      ? `<span class="qty-fixed" title="1 montante de tablero por circuito">1</span>`
+      : `<span class="qty-ro">${m.und}</span>`;
+    const ref = m.fixed ? 'tab' : (m.lineIdx!=null?('L'+m.lineIdx):'');
+    const altCell = ref
+      ? `<input class="alt-edit" data-c="${c.id}" data-altrow="${ref}" value="${fmtH(m.alt)}" title="Altura (m) — editable">`
+      : `${fmtH(m.alt)}`;
+    const rowCnt=(m.cnt!=null?+m.cnt:w0)||0;
+    const ovM=rowOv(c,m.cond), totM=circCondTotal(c);
+    // #cond editable por fila (independiente) — solo si la columna está visible
+    let condTd = condColShown(c) ? `<td class="n"><input class="cnt cond-cell condrow-cell" data-c="${c.id}" data-f="condrow" data-condrow="m${m.fixed?'tab':('l'+m.lineIdx)}" value="${condShow(c,ovM)}" title="Nº de conductores de esta fila (editable, independiente)"></td>` : '';
+    const pipeTds=pipeCellsHTML(c, m.fixed?'mtab':('ml'+m.lineIdx), m.pipe, m.long);
+    const wireTds=wireCols(c).map(col=>`<td class="n cable-cell">${fmt(m.long*condEff(ovM,col,totM))}</td>`).join('');
+    return `<tr>
+      <td><div class="desc-pick">${ m.fixed ? `<input type="checkbox" class="mont-chk" data-mk="tab" title="Seleccionar (ocultar) montante de tablero">` : `<input type="checkbox" class="mont-chk" data-mk="line" data-i="${m.lineIdx}" title="Seleccionar montante">` }<span class="mont-label">${esc(m.label.replace(/ × .*und.*$/,'').replace(/^MONTANTE\s+/,''))}${m.veces>=2?' <span class="dbl-tag" title="Sube y baja (ida y vuelta)">↑↓</span>':(m.veces===1&&tipoTieneVeces(m.tipoKey)?' <span class="dbl-tag simple" title="Solo sube (un recorrido)">↑</span>':'')}</span></div></td>
+      <td class="n">${qtyCell}</td>
+      ${condTd}
+      <td class="n alt-cell">${altCell}</td>
+      ${pipeTds}${wireTds}
+    </tr>`;
+  }).join('');
+}
+// update numbers live without losing focus (horizontales, fijos, salidas)
+function liveCircUpdate(t,c){
+  const root=document.querySelector(`.circ[data-cid="${c.id}"]`);
+  if(!root)return;
+  const n=+c.cnt||0;
+  // horizontales: tubería = long×und ; cable = und×cond×long
+  c.horiz.forEach((tr,i)=>{
+    const inp=root.querySelector(`input[data-grp="horiz"][data-i="${i}"][data-f="len"]`);
+    if(inp){const u=(tr.und==null?1:+tr.und)||0, cd=+tr.cnt||0, L=+tr.len||0;
+      const row=inp.closest('tr');
+      const lc=row.querySelector('.long-cell'); if(lc) lc.textContent=fmt(L*u);
+      const cc=row.querySelector('.cable-cell'); if(cc&&cc.firstChild) cc.firstChild.textContent=fmt(u*cd*L);}
+  });
+  // fixed: cable = 1×cond×long
+  c.fixed.forEach((f,i)=>{
+    const inp=root.querySelector(`input[data-fix="${i}"][data-f="len"]`);
+    if(inp){inp.closest('tr').querySelector('.cable-cell').textContent=fmt(1*(+f.cnt||0)*(+f.len||0));}
+  });
+  // salidas: cable = 1×cond×long
+  const sal=root.querySelector('input[data-f="sal_len"]');
+  if(sal){sal.closest('tr').querySelector('.cable-cell').textContent=fmt(1*(+c.salidas.cnt||0)*(+c.salidas.len||0));}
+  // circuit sum
+  const {wire}=circTotals(c);
+  root.querySelector('.circ-sum').textContent='Σ cable: '+(fmt(wire)||'0')+' m';
+  updateHeadTotal(t);
+  renderTotbar();
+}
+function updateHeadTotal(t){
+  const acc=tableroAcc(t);
+  const cableTot=Object.entries(acc).filter(([k])=>k.startsWith('W|')).reduce((s,[,v])=>s+v,0);
+  const el=document.querySelector('.th-tot .val'); if(el)el.textContent=fmt(cableTot)||'0';
+}
+// actualiza en vivo las celdas de una fila manual (montExtra/conexExtra) sin re-render
+function liveExtraRow(t,c,kind,idx,root){
+  root=root||document.querySelector(`.circ[data-cid="${c.id}"]`); if(!root)return;
+  const anyInp=root.querySelector(`[data-grp="${kind}"][data-i="${idx}"]`);
+  const tr=anyInp?anyInp.closest('tr'):null;
+  if(tr){
+    const cols=wireCols(c); const tot=circCondTotal(c);
+    if(kind==='montExtra'){
+      const m=c.montExtra[idx]||{}; const long=+((+m.len||0)*(+m.und||1)).toFixed(4);
+      const ov=rowOv(c,m.cond);
+      tr.querySelectorAll('.long-val').forEach(td=>td.textContent=fmt(long));
+      const cc=tr.querySelectorAll('.cable-cell');
+      cols.forEach((col,ci)=>{ if(cc[ci]) cc[ci].textContent=fmt(long*condEff(ov,col,tot)); });
+    } else {
+      const x=c.conexExtra[idx]||{}; const base=(+x.und||0)*(+x.len||0);
+      const ov=rowOv(c,x.cond);
+      const cc=tr.querySelectorAll('.cable-cell');
+      cols.forEach((col,ci)=>{ if(cc[ci]) cc[ci].textContent=fmt(base*condEff(ov,col,tot)); });
+    }
+  }
+  const {wire}=circTotals(c);
+  const sumEl=root.querySelector('.circ-sum'); if(sumEl) sumEl.textContent='Σ cable: '+(fmt(wire)||'0')+' m';
+  updateHeadTotal(t); renderTotbar();
+}
+
+/* ============ RENDER: totals bar ============ */
+function renderTotbar(){
+  const t=DB.tableros.find(x=>x.id===activeId);
+  const bar=$('#totbar');
+  if(!t){bar.innerHTML='';return;}
+  const acc=tableroAcc(t);
+  // solo columnas usadas; tubería primero, luego cable
+  const keys=Object.keys(acc).filter(k=>acc[k]).sort((a,b)=>{
+    const pa=a[0]==='P'?0:1, pb=b[0]==='P'?0:1;
+    return pa-pb || colLabel(a).localeCompare(colLabel(b));
+  });
+  let html=`<span class="lbl">Totales&nbsp;<b style="color:var(--ink)">${esc(t.nombre)}</b></span>`;
+  if(!keys.length){
+    html+=`<div class="tot-cell zero"><div class="t">Sin metrado</div><div class="v">0</div></div>`;
+  }
+  keys.forEach(k=>{
+    const v=acc[k]||0;
+    const isPipe=k[0]==='P';
+    html+=`<div class="tot-cell ${isPipe?'pipe':'wire'}"><div class="t">${colLabel(k)}</div><div class="v">${fmt(v)}</div></div>`;
+  });
+  bar.innerHTML=html;
+}
+
+/* ============ META ============ */
+function bindMeta(){
+  $('#mProj').value=DB.meta.proj; $('#mDpto').value=DB.meta.dpto; $('#mRea').value=DB.meta.rea;
+  $('#mProj').oninput=e=>DB.meta.proj=e.target.value;
+  $('#mDpto').oninput=e=>DB.meta.dpto=e.target.value;
+  $('#mRea').oninput=e=>DB.meta.rea=e.target.value;
+}
+
+/* ============ EXPORT XLSX ============ */
+function exportXlsx(opts){
+  const quiet=!!(opts&&opts.quiet===true);
+  const aoa=[];
+  aoa.push(['HOJA DE CÁLCULO PARA TABLERO DE DISTRIBUCIÓN — METRADO IIEE']);
+  aoa.push(['PROYECTO:',DB.meta.proj]);
+  aoa.push(['DPTO:',DB.meta.dpto,'','REALIZADO:',DB.meta.rea]);
+  aoa.push([]);
+
+  // 1) recolectar todas las columnas (combos) usadas en todo el proyecto
+  const projAcc={};
+  DB.tableros.forEach(t=>t.circuitos.forEach(c=>addCircToAcc(c,projAcc)));
+  const colKeys=Object.keys(projAcc).sort((a,b)=>{
+    const pa=a[0]==='P'?0:1, pb=b[0]==='P'?0:1;
+    return pa-pb || colLabel(a).localeCompare(colLabel(b));
+  });
+  const colIdx={}; colKeys.forEach((k,i)=>colIdx[k]=3+i);
+  const header=['TABLERO','DESCRIPCIÓN DEL CIRCUITO','# Cond',...colKeys.map(colLabel)];
+  const ncols=3+colKeys.length;
+  const blankRow=()=>new Array(ncols).fill('');
+
+  NIVELES.forEach(niv=>{
+    const tbs=DB.tableros.filter(t=>t.nivel===niv);
+    if(!tbs.length) return;
+    aoa.push([niv]);
+    const blocks=[...new Set(tbs.map(t=>t.bloque))];
+    blocks.forEach(bl=>{
+      aoa.push([bl]);
+      tbs.filter(t=>t.bloque===bl).forEach(t=>{
+        aoa.push(['TABLERO DE DISTRIBUCIÓN  '+t.nombre]);
+        aoa.push(header.slice());
+        const tacc={};
+        t.circuitos.forEach(c=>{
+          ensurePW(c);
+          aoa.push([c.tag,c.desc,'# Cond']);
+          aoa.push(['','PROYECCIÓN HORIZONTAL']);
+          // emit: geom = len×und ; tubería en cada pipe = geom ; cable en cada wire = geom×cnt(wire)
+          const oneCable=c.wires.length===1;
+          const w0=+(c.wires[0]?.cnt)||0;
+          const emitGeom=(desc,und,len,withPipe,ov,storedPipe)=>{
+            const row=blankRow(); row[1]=desc;
+            const L=+len||0, u=(und==null?1:+und)||0, geom=+(L*u).toFixed(4);
+            const tot=circCondTotal(c);
+            if(geom){
+              if(withPipe){ const p=c.pipes[rowPipe(c,storedPipe)]; if(p) row[colIdx[pipeKey(p.mat,p.dia)]]=geom; }
+              wireCols(c).forEach(col=>{ row[colIdx[col.key]]=+(geom*condEff(ov,col,tot)).toFixed(4); });
+            }
+            aoa.push(row);
+          };
+          const emitConex=(desc,units,len,ov)=>{
+            const row=blankRow(); row[1]=desc;
+            const base=(+units||0)*(+len||0);
+            const tot=circCondTotal(c);
+            wireCols(c).forEach(col=>{ const v=+(base*condEff(ov,col,tot)).toFixed(4); if(v) row[colIdx[col.key]]=v; });
+            aoa.push(row);
+          };
+          // horizontales
+          c.horiz.forEach(tr=>emitGeom(tr.desc,(tr.und==null?1:tr.und),tr.len,true,rowOv(c,tr.cond),tr.pipe));
+          // montantes
+          const monts=circMontantes(c);
+          if(monts.length){const r=blankRow();r[1]='MONTANTE';aoa.push(r);
+            monts.forEach(m=>{
+              const row=blankRow(); row[1]=m.label.replace(/^MONTANTE\s+/,'');
+              const tot=circCondTotal(c); const ov=rowOv(c,m.cond);
+              const p=c.pipes[rowPipe(c,m.pipe)]; if(m.long && p) row[colIdx[pipeKey(p.mat,p.dia)]]=+m.long;
+              wireCols(c).forEach(col=>{ const v=+(m.long*condEff(ov,col,tot)).toFixed(4); if(v) row[colIdx[col.key]]=v; });
+              aoa.push(row);
+            });}
+          c.fixed.forEach(f=>{ if(f.hidden) return;
+            if(f.kind==='tierra'){
+              const row=blankRow(); row[1]=f.desc; const base=1*(+f.len||0); const tc=tierraCnt(c);
+              wireCols(c).forEach(col=>{ if(col.roles.includes('TIERRA')){ const v=+(base*tc).toFixed(4); if(v) row[colIdx[col.key]]=v; } });
+              aoa.push(row);
+            } else {
+              emitConex(f.desc,1,f.len,rowOv(c,f.cond));
+            }
+          });
+          // conexiones (antes SALIDAS): und = suma de montantes del circuito
+          if(!c.hideConex){
+            emitConex(conexLabel(c), circConexUnd(c), c.salidas.len, rowOv(c,c.salidas.cond));
+          }
+          // conexiones manuales
+          (c.conexExtra||[]).forEach(x=>{
+            emitConex(x.desc||'CONEXIÓN', x.und, x.len, rowOv(c,x.cond));
+          });
+          addCircToAcc(c,tacc);
+        });
+        const trow=blankRow(); trow[0]='TOTAL';
+        colKeys.forEach(k=>{ if(tacc[k]) trow[colIdx[k]]=tacc[k]; });
+        aoa.push(trow); aoa.push(blankRow());
+      });
+    });
+  });
+  // === enviar al host (ventana flotante) o escribir directo ===
+  if (window.__DLG__) {
+    try{ Office.context.ui.messageParent(JSON.stringify({type:'data', aoa:aoa, colKeys:colKeys, activate:!quiet, db:DB})); }catch(e){ console.warn('messageParent', e); }
+  } else if (window.Excel && Excel.run) {
+    writeAoaToExcel(aoa, colKeys, { activate: !quiet, quiet: quiet });
+  } else if (!quiet) {
+    // fallback: si se abre como HTML normal (sin Excel), descarga archivo
+    const ws=XLSX.utils.aoa_to_sheet(aoa);
+    ws['!cols']=[{wch:14},{wch:42},{wch:8},...colKeys.map(()=>({wch:13}))];
+    const wb=XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb,ws,'RED');
+    XLSX.writeFile(wb,'Metrado_IIEE_RED.xlsx');
+    toast('Excel generado ✓');
+  }
+}
+
+/* ============ UTIL ============ */
+function esc(s){return String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
+
+/* ============ CATÁLOGO DE MONTANTES (ALTURAS) ============ */
+function openAlturas(){ renderTipos(); $('#altBg').classList.add('show'); }
+function renderTipos(){
+  const wrap=$('#tiposWrap');
+  wrap.innerHTML=DB.tipos.map((tp,ti)=>`
+    <div class="tipo-card" data-ti="${ti}">
+      <div class="tipo-head">
+        <input class="tipo-name" data-ti="${ti}" value="${esc(tp.nombre)}" title="Nombre del tipo">
+        ${tp.key==='tablero'?'<span class="tipo-base">base</span>':''}
+        <button class="mini addh" data-ti="${ti}">＋ altura</button>
+        ${tp.key==='tablero'?'':`<button class="x deltipo" data-ti="${ti}" title="Eliminar tipo">✕</button>`}
+      </div>
+      <div class="tipo-alts">
+        ${(tp.alturas||[]).map((a,hi)=>{
+          const e=altEntry(tp,hi);
+          const claseTag = tp.clases ? `<span class="alt-clase">${e.clase||'—'}</span>` : '';
+          return `<div class="alt-row">
+            ${claseTag}
+            <input type="number" step="0.05" value="${e.h}" data-ti="${ti}" data-hi="${hi}">
+            <span class="u">m</span>
+            <button class="x" data-delh="${ti}" data-hi="${hi}" title="Quitar">✕</button>
+          </div>`;
+        }).join('') || '<div class="m-hint" style="margin:0">Sin alturas.</div>'}
+      </div>
+      ${tp.clases?'<div class="m-hint" style="margin:6px 0 0">PISO y TECHO; la altura es editable también dentro de cada circuito.</div>':''}
+    </div>`).join('');
+  // nombre del tipo
+  wrap.querySelectorAll('input.tipo-name').forEach(inp=>{
+    inp.oninput=e=>{DB.tipos[+inp.dataset.ti].nombre=e.target.value;};
+  });
+  // alturas (respeta estructura {clase,h} en tipos con clase)
+  wrap.querySelectorAll('input[data-hi]').forEach(inp=>{
+    inp.oninput=e=>{
+      const tp=DB.tipos[+inp.dataset.ti], hi=+inp.dataset.hi, val=parseFloat(e.target.value)||0;
+      if(tp.clases && typeof tp.alturas[hi]==='object') tp.alturas[hi].h=val;
+      else tp.alturas[hi]=val;
+    };
+  });
+  // agregar altura (siempre numérica simple; PISO/TECHO son únicos)
+  wrap.querySelectorAll('button.addh').forEach(b=>{
+    b.onclick=()=>{const tp=DB.tipos[+b.dataset.ti];
+      // última altura numérica como referencia
+      const nums=(tp.alturas||[]).filter(a=>typeof a!=='object');
+      tp.alturas.push(nums.length?(+nums[nums.length-1]||1.0):1.0);
+      renderTipos(); refreshInsertSelects();};
+  });
+  // quitar altura
+  wrap.querySelectorAll('[data-delh]').forEach(b=>{
+    b.onclick=()=>{DB.tipos[+b.dataset.delh].alturas.splice(+b.dataset.hi,1); renderTipos(); refreshInsertSelects();};
+  });
+  // eliminar tipo
+  wrap.querySelectorAll('button.deltipo').forEach(b=>{
+    b.onclick=()=>{DB.tipos.splice(+b.dataset.ti,1); renderTipos(); refreshInsertSelects();};
+  });
+}
+function addTipo(){
+  const name=$('#newTipoName').value.trim();
+  if(!name){$('#newTipoName').focus();$('#newTipoName').style.borderColor='#e0463a';return;}
+  // key único a partir del nombre
+  let base=name.toLowerCase().replace(/[^a-z0-9]+/g,'_').replace(/^_|_$/g,'')||('tipo'+uid());
+  let key=base, n=2; while(DB.tipos.some(t=>t.key===key)){key=base+'_'+n++;}
+  DB.tipos.push({key, nombre:name.toUpperCase(), alturas:[1.0], base:false});
+  $('#newTipoName').value=''; $('#newTipoName').style.borderColor='';
+  renderTipos(); refreshInsertSelects();
+}
+// re-render circuitos visibles para refrescar los selectores de inserción
+function refreshInsertSelects(){
+  const t=DB.tableros.find(x=>x.id===activeId); if(!t)return;
+  renderCircs(t);
+}
+$('#btnAlturas').onclick=openAlturas;
+$('#altClose').onclick=()=>{$('#altBg').classList.remove('show'); refreshInsertSelects(); toast('Catálogo actualizado');};
+$('#altBg').onclick=e=>{if(e.target.id==='altBg'){$('#altBg').classList.remove('show');refreshInsertSelects();}};
+$('#addTipo').onclick=addTipo;
+$('#newTipoName').addEventListener('input',e=>e.target.style.borderColor='');
+$('#newTipoName').addEventListener('keydown',e=>{if(e.key==='Enter')addTipo();});
+
+/* ============ TOP ACTIONS ============ */
+function openNewTabModal(){
+  // fill nivel options
+  $('#nbNivel').innerHTML=NIVELES.map(n=>`<option>${n}</option>`).join('');
+  // sensible defaults from last tablero
+  const last=DB.tableros.at(-1);
+  if(last){$('#nbNivel').value=last.nivel; $('#nbBloque').value=last.bloque;}
+  $('#nbNombre').value=''; $('#nbCant').value=4;
+  $('#modalBg').classList.add('show');
+  setTimeout(()=>$('#nbNombre').focus(),60);
+}
+function closeNewTabModal(){$('#modalBg').classList.remove('show');}
+function createTabFromModal(){
+  const nombre=$('#nbNombre').value.trim();
+  let cant=parseInt($('#nbCant').value)||1;
+  cant=Math.max(1,Math.min(60,cant));
+  if(!nombre){$('#nbNombre').focus();$('#nbNombre').style.borderColor='#e0463a';return;}
+  const t={
+    id:uid(),
+    nivel:$('#nbNivel').value,
+    bloque:$('#nbBloque').value.trim()||'BLOQUE A',
+    nombre, alturaPT:2.40,
+    circuitos:[]
+  };
+  for(let i=1;i<=cant;i++) t.circuitos.push(newCircuit('C-'+i,''));
+  DB.tableros.push(t); activeId=t.id;
+  closeNewTabModal(); renderAll();
+  toast(`Tablero ${nombre} creado · ${cant} circuito${cant>1?'s':''}`);
+}
+$('#btnAddTab').onclick=openNewTabModal;
+$('#nbCancel').onclick=closeNewTabModal;
+$('#nbCreate').onclick=createTabFromModal;
+$('#modalBg').onclick=e=>{if(e.target.id==='modalBg')closeNewTabModal();};
+$('#nbNombre').addEventListener('input',e=>e.target.style.borderColor='');
+document.addEventListener('keydown',e=>{
+  if(!$('#modalBg').classList.contains('show'))return;
+  if(e.key==='Escape')closeNewTabModal();
+  if(e.key==='Enter')createTabFromModal();
+});
+$('#btnXlsx').onclick=exportXlsx;
+$('#btnPrint').onclick=()=>window.print();
+
+/* ===== navegación tipo hoja de cálculo en las celdas editables ===== */
+function _navInput(el){ return el && el.tagName==='INPUT' && el.type!=='checkbox' && el.closest('.circ table') && !el.closest('.addrow'); }
+function _focusCell(t){ if(t){ t.focus(); try{ t.select(); }catch(_){ } } return !!t; }
+function _navVert(inp,dir){
+  const td=inp.closest('td'), tr=inp.closest('tr'); if(!td||!tr) return null;
+  const col=td.cellIndex, rows=[...tr.parentNode.rows]; let ri=rows.indexOf(tr);
+  for(let r=ri+dir; r>=0 && r<rows.length; r+=dir){
+    const row=rows[r];
+    if(row.classList.contains('grp-row')||row.classList.contains('addrow')) continue;
+    const cell=row.cells[col]; if(cell){ const t=cell.querySelector('input:not([type=checkbox])'); if(t) return t; }
+  }
+  return null;
+}
+function _navHoriz(inp,dir){
+  const tr=inp.closest('tr'); if(!tr) return null;
+  const ins=[...tr.querySelectorAll('input:not([type=checkbox])')].filter(x=>!x.closest('.addrow'));
+  const j=ins.indexOf(inp)+dir;
+  return (j>=0 && j<ins.length) ? ins[j] : null;
+}
+document.addEventListener('keydown',e=>{
+  const el=e.target;
+  if(!_navInput(el)) return;
+  const k=e.key;
+  if(k==='Enter'){ e.preventDefault(); _focusCell(_navVert(el, e.shiftKey?-1:1)); return; }
+  if(k==='ArrowDown'){ e.preventDefault(); _focusCell(_navVert(el,1)); return; }
+  if(k==='ArrowUp'){ e.preventDefault(); _focusCell(_navVert(el,-1)); return; }
+  const atStart = el.selectionStart===0 && el.selectionEnd===0;
+  const atEnd   = el.selectionStart===(el.value||'').length && el.selectionEnd===(el.value||'').length;
+  if(k==='ArrowLeft'  && atStart){ if(_focusCell(_navHoriz(el,-1))) e.preventDefault(); return; }
+  if(k==='ArrowRight' && atEnd  ){ if(_focusCell(_navHoriz(el, 1))) e.preventDefault(); return; }
+});
+
+/* ===== pegar (Ctrl+V) una columna/tabla desde Excel en las celdas de lista ===== */
+function _findCirc(cid){ for(const t of DB.tableros){ const c=t.circuitos.find(x=>x.id===cid); if(c) return {t,c}; } return null; }
+document.addEventListener('paste',e=>{
+  const el=e.target;
+  if(!_navInput(el)) return;
+  const grp=el.dataset.grp;
+  if(grp!=='horiz' && grp!=='montExtra' && grp!=='conexExtra') return; // pegado normal en otras celdas
+  const dt=e.clipboardData||window.clipboardData; if(!dt) return;
+  const txt=dt.getData('text'); if(txt==null) return;
+  let lines=txt.replace(/\r\n/g,'\n').replace(/\r/g,'\n').split('\n');
+  if(lines.length>1 && lines[lines.length-1].trim()==='') lines.pop();
+  const grid=lines.map(l=>l.split('\t'));
+  const multi = grid.length>1 || (grid[0]&&grid[0].length>1);
+  if(!multi) return; // un solo valor -> pegado normal de celda
+  e.preventDefault();
+  const found=_findCirc(el.dataset.c); if(!found) return;
+  const {t,c}=found; ensureLines(c);
+  const arr=c[grp], startIdx=+el.dataset.i;
+  const fieldOrder = (c.wires.length===1) ? ['desc','und','cnt','len'] : ['desc','und','len'];
+  let fStart=fieldOrder.indexOf(el.dataset.f); if(fStart<0) fStart=fieldOrder.length-1;
+  const newRow=()=> grp==='horiz' ? tramo(tendidoDesc(c.tag),circCnt(c),0) : {id:uid(),desc:'',und:1,cnt:circCnt(c),len:0};
+  grid.forEach((line,gi)=>{
+    const ri=startIdx+gi;
+    while(arr.length<=ri) arr.push(newRow());
+    const row=arr[ri];
+    line.forEach((val,cj)=>{
+      const f=fieldOrder[fStart+cj]; if(!f) return;
+      val=(val||'').trim();
+      if(f==='desc') row.desc=val;
+      else row[f]=parseFloat(val.replace(/\s/g,'').replace(',','.'))||0;
+    });
+  });
+  refreshCirc(t,c); renderTotbar();
+});
+
+/* ============ INIT ============ */
+function renderAll(){renderTree();renderMain();renderTotbar();persist();}
+
+/* ===== Office.js: persistencia dentro del propio libro ===== */
+function saveDB(){
+  try{
+    if(window.Office && Office.context && Office.context.document && Office.context.document.settings){
+      Office.context.document.settings.set('metradoDB', JSON.stringify(DB));
+      Office.context.document.settings.saveAsync();
+    }
+  }catch(e){ console.warn('saveDB', e); }
+}
+function loadDB(){
+  try{
+    if(window.Office && Office.context && Office.context.document && Office.context.document.settings){
+      const s=Office.context.document.settings.get('metradoDB');
+      if(s){ DB=JSON.parse(s); activeId=(DB.tableros[0]&&DB.tableros[0].id)||null; }
+    }
+  }catch(e){ console.warn('loadDB', e); }
+}
+let _persistT=null;
+function liveSync(){ if(window.__DLG__ || (window.Excel && Excel.run)){ exportXlsx({quiet:true}); } }
+function persist(){ clearTimeout(_persistT); _persistT=setTimeout(function(){ if(!window.__DLG__) saveDB(); liveSync(); }, 600); }
+document.addEventListener('input', persist, true);
+document.addEventListener('change', persist, true);
+
+/* ===== Office.js: vuelca el metrado en la hoja 'RED' del libro abierto ===== */
+let _writing=false, _writePending=null;
+async function writeAoaToExcel(aoa, colKeys, opts){
+  opts = opts || {};
+  const doActivate = opts.activate !== false;
+  const quiet = opts.quiet === true;
+  if(_writing){ _writePending={aoa:aoa, colKeys:colKeys, opts:opts}; return; }
+  _writing=true;
+  try{
+    await Excel.run(async (ctx)=>{
+      const sheets=ctx.workbook.worksheets;
+      let ws=sheets.getItemOrNullObject('RED');
+      ws.load('name');
+      await ctx.sync();
+      if(ws.isNullObject){ ws=sheets.add('RED'); }
+      const used=ws.getUsedRangeOrNullObject();
+      used.load('rowCount');
+      await ctx.sync();
+      if(!used.isNullObject){ used.clear(Excel.ClearApplyTo.all); }
+      const ncols=Math.max(1, ...aoa.map(r=>r.length));
+      const data=aoa.map(r=>{
+        const row=r.slice();
+        while(row.length<ncols) row.push('');
+        return row.map(v=> v==null ? '' : v);
+      });
+      if(!data.length){ if(doActivate){ ws.activate(); } await ctx.sync(); return; }
+
+      const rngAll=ws.getRangeByIndexes(0,0,data.length,ncols);
+      rngAll.values=data;
+
+      // paleta tomada del propio HTML
+      const C={ navy:'#0f1b2d', bloque:'#26456f', accent:'#1d4ed8', accentD:'#163a9e',
+                tablero:'#dbe6f6', light:'#eaf1fc', sub:'#f3f6fb', meta:'#f7f9fc',
+                total:'#dbe6f6', border:'#c7d0dd', white:'#ffffff', ink2:'#3a4a61' };
+
+      // anchos de columna fijos (puntos)
+      ws.getRangeByIndexes(0,0,1,1).format.columnWidth=92;
+      ws.getRangeByIndexes(0,1,1,1).format.columnWidth=300;
+      ws.getRangeByIndexes(0,2,1,1).format.columnWidth=48;
+      for(let cc=3; cc<ncols; cc++){ ws.getRangeByIndexes(0,cc,1,1).format.columnWidth=74; }
+
+      // bordes finos en toda la tabla
+      ['EdgeTop','EdgeBottom','EdgeLeft','EdgeRight','InsideHorizontal','InsideVertical'].forEach(ed=>{
+        const b=rngAll.format.borders.getItem(ed); b.style='Continuous'; b.weight='Thin'; b.color=C.border;
+      });
+
+      // formato numerico + alineacion a la derecha en columnas de metrado (col D en adelante)
+      if(ncols>3){
+        rngAll.numberFormat=data.map(row=>row.map((v,ci)=> ci>=3 ? '0.00' : 'General'));
+        ws.getRangeByIndexes(0,3,data.length,ncols-3).format.horizontalAlignment='Right';
+      }
+
+      // estilo por tipo de fila (se detecta por contenido)
+      const NIV=(typeof NIVELES!=='undefined')?NIVELES:[];
+      const rowR=(i)=>ws.getRangeByIndexes(i,0,1,ncols);
+      const cellR=(i,c)=>ws.getRangeByIndexes(i,c,1,1);
+      for(let i=0;i<data.length;i++){
+        const r=data[i];
+        const c0=String(r[0]||''), c1=String(r[1]||''), c2=String(r[2]||'');
+        const filled=r.filter(x=>x!=='' && x!=null).length;
+        let t='data';
+        if(i===0) t='title';
+        else if(c0==='PROYECTO:'||c0==='DPTO:') t='meta';
+        else if(filled===0) t='blank';
+        else if(c0==='TABLERO' && c1==='DESCRIPCIÓN DEL CIRCUITO') t='thead';
+        else if(c0==='TOTAL') t='total';
+        else if(c0.indexOf('TABLERO DE DISTRIBUCIÓN')===0) t='tabtitle';
+        else if(c2==='# Cond') t='circ';
+        else if(c1==='PROYECCIÓN HORIZONTAL'||c1==='MONTANTE') t='sub';
+        else if(filled===1 && c0) t=(NIV.indexOf(c0)>=0)?'nivel':'bloque';
+
+        if(t==='title'){ const R=rowR(i); R.format.fill.color=C.navy; R.format.font.color=C.white; R.format.font.bold=true; R.format.font.size=13; }
+        else if(t==='meta'){ const R=rowR(i); R.format.fill.color=C.meta; cellR(i,0).format.font.bold=true; if(r[3]) cellR(i,3).format.font.bold=true; }
+        else if(t==='nivel'){ const R=rowR(i); R.format.fill.color=C.navy; R.format.font.color=C.white; R.format.font.bold=true; R.format.font.size=12; }
+        else if(t==='bloque'){ const R=rowR(i); R.format.fill.color=C.bloque; R.format.font.color=C.white; R.format.font.bold=true; }
+        else if(t==='tabtitle'){ const R=rowR(i); R.format.fill.color=C.tablero; R.format.font.color=C.accentD; R.format.font.bold=true; }
+        else if(t==='thead'){ const R=rowR(i); R.format.fill.color=C.accent; R.format.font.color=C.white; R.format.font.bold=true; R.format.horizontalAlignment='Center'; R.format.wrapText=true; }
+        else if(t==='circ'){ const R=rowR(i); R.format.fill.color=C.light; const a=cellR(i,0); a.format.fill.color=C.accent; a.format.font.color=C.white; a.format.font.bold=true; a.format.horizontalAlignment='Center'; const b=cellR(i,1); b.format.font.bold=true; b.format.font.color=C.accentD; }
+        else if(t==='sub'){ const R=rowR(i); R.format.fill.color=C.sub; R.format.font.italic=true; R.format.font.bold=true; R.format.font.color=C.ink2; }
+        else if(t==='total'){ const R=rowR(i); R.format.fill.color=C.total; R.format.font.bold=true; }
+      }
+
+      rngAll.format.verticalAlignment='Center';
+      if(doActivate){ ws.activate(); }
+      await ctx.sync();
+    });
+    if(!quiet) toast('Metrado escrito en la hoja RED ✓');
+  }catch(e){
+    console.error(e);
+    if(!quiet) toast('Error al escribir en Excel: '+(e.message||e));
+  } finally {
+    _writing=false;
+    if(_writePending){ const p=_writePending; _writePending=null; writeAoaToExcel(p.aoa,p.colKeys,p.opts); }
+  }
+}
+
+/* ===== arranque ===== */
+window.__DLG__ = /[?&]dlg=1/.test(location.search);
+function applyInit(dbStr){
+  try{ if(dbStr){ DB=JSON.parse(dbStr); activeId=(DB.tableros[0]&&DB.tableros[0].id)||null; renderAll(); } }
+  catch(e){ console.warn('init', e); }
+}
+function boot(){
+  if(window.__DLG__ && window.Office && Office.context && Office.context.ui){
+    try{
+      Office.context.ui.addHandlerAsync(Office.EventType.DialogParentMessageReceived, function(arg){
+        try{ const m=JSON.parse(arg.message); if(m.type==='init'){ applyInit(m.db); } }catch(e){}
+      });
+    }catch(e){ console.warn('addHandler', e); }
+    bindMeta(); renderAll();
+    try{ Office.context.ui.messageParent(JSON.stringify({type:'ready'})); }catch(e){ console.warn('ready', e); }
+  } else {
+    loadDB(); bindMeta(); renderAll();
+  }
+}
+if (window.Office && Office.onReady) {
+  Office.onReady(function(){ boot(); });
+} else {
+  boot();
+}
+</script>
+</body>
+</html>
